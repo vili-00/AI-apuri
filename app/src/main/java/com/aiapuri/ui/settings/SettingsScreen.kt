@@ -1,21 +1,22 @@
 package com.aiapuri.ui.settings
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import com.aiapuri.AiapuriApplication
+import com.aiapuri.domain.model.ConnectionTestUseCase
 import com.aiapuri.ui.components.SettingsForm
 import kotlinx.coroutines.flow.first
 
@@ -70,10 +71,12 @@ fun SettingsScreen(
 }
 
 /**
- * Create a SettingsViewModel wired to the application's SettingsRepository.
+ * Create a SettingsViewModel wired to the application's SettingsRepository
+ * and ConnectionTestUseCase.
  */
 @Composable
 fun rememberSettingsViewModel(application: AiapuriApplication): SettingsViewModel {
+    val connectionTestUseCase = remember { ConnectionTestUseCase() }
     return remember {
         SettingsViewModel(
             saveSettings = { settings ->
@@ -81,6 +84,9 @@ fun rememberSettingsViewModel(application: AiapuriApplication): SettingsViewMode
             },
             saveAppSettings = { settings ->
                 application.settingsRepository.saveAppSettings(settings)
+            },
+            testConnection = { serverSettings ->
+                connectionTestUseCase(serverSettings)
             }
         )
     }

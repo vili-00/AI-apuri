@@ -1,6 +1,8 @@
 package com.aiapuri.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,8 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.WarningAmber
@@ -22,6 +26,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -45,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.aiapuri.core.model.ModelInfo
 import com.aiapuri.ui.settings.SettingsUiState
 import com.aiapuri.ui.settings.TestConnectionState
 import com.aiapuri.ui.settings.SettingsViewModel
@@ -175,30 +182,31 @@ fun SettingsForm(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // ---- Test connection ----
+        TestConnectionCard(
+            state = state.testConnectionState,
+            fetchedModels = state.fetchedModels,
+            connectionErrorMessage = state.connectionErrorMessage,
+            onTest = viewModel::testConnection,
+            onRefreshModels = viewModel::refreshModels
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // ---- Default Model ----
         Text(
             text = "Default Model",
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(bottom = 4.dp)
         )
-        OutlinedTextField(
-            value = state.defaultModel,
-            onValueChange = viewModel::onDefaultModelChanged,
-            label = { Text("e.g. qwen3.6-27b") },
-            supportingText = { Text("Optional — can be changed per conversation") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+        ModelSelector(
+            currentModel = state.defaultModel,
+            availableModels = state.fetchedModels,
+            onModelChanged = viewModel::onDefaultModelChanged,
+            onModelSelected = viewModel::onSelectModel
         )
 
         Spacer(modifier = Modifier.height(24.dp))
-
-        // ---- Test connection (placeholder) ----
-        TestConnectionButton(
-            state = state.testConnectionState,
-            onTest = viewModel::testConnection
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         // ---- Save button ----
         Button(
@@ -220,77 +228,212 @@ fun SettingsForm(
 }
 
 /**
- * Placeholder test-connection button. Actual network test in Task 07.
+ * Test connection card showing connection status with detailed feedback.
  */
 @Composable
-private fun TestConnectionButton(
+private fun TestConnectionCard(
     state: TestConnectionState,
-    onTest: () -> Unit
+    fetchedModels: List<ModelInfo>,
+    connectionErrorMessage: String?,
+    onTest: () -> Unit,
+    onRefreshModels: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
         )
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            when (state) {
-                TestConnectionState.Idle -> {
-                    Text(
-                        text = "Test Connection",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = onTest) {
-                        Text("Test")
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                when (state) {
+                    is TestConnectionState.Idle -> {
+                        Text(
+                            text = "Test Connection",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onTest) {
+                            Text("Test")
+                        }
+                    }
+                    is TestConnectionState.Testing -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Text(
+                            text = "Testing connection…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    is TestConnectionState.Success -> {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Connected successfully",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            if (state.models.isNotEmpty()) {
+                                Text(
+                                    text = "${state.models.size} model${if (state.models.size > 1) "s" else ""} found",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        TextButton(onClick = onRefreshModels) {
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh models")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Refresh")
+                        }
+                    }
+                    is TestConnectionState.Error -> {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = state.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        TextButton(onClick = onTest) {
+                            Text("Retry")
+                        }
                     }
                 }
-                TestConnectionState.Testing -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
+            }
+
+            // Show fetched model list when available
+            if (fetchedModels.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
                     )
-                    Text(
-                        text = "Testing connection…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                TestConnectionState.Success -> {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Connected successfully",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = onTest) {
-                        Text("Retry")
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Text(
+                            text = "Available Models",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        fetchedModels.forEach { model ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = model.displayName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = model.id,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
-                TestConnectionState.Error -> {
-                    Icon(
-                        imageVector = Icons.Default.Error,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Text(
-                        text = "Connection failed",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = onTest) {
-                        Text("Retry")
+            }
+        }
+    }
+}
+
+/**
+ * Model selector supporting both dropdown selection from fetched models
+ * and manual text entry.
+ */
+@Composable
+private fun ModelSelector(
+    currentModel: String,
+    availableModels: List<ModelInfo>,
+    onModelChanged: (String) -> Unit,
+    onModelSelected: (ModelInfo) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var manualText by remember { mutableStateOf(currentModel) }
+
+    // Sync manual text when currentModel changes externally
+    LaunchedEffect(currentModel) {
+        manualText = currentModel
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = manualText,
+            onValueChange = {
+                manualText = it
+                onModelChanged(it)
+            },
+            label = { Text("e.g. qwen3.6-27b") },
+            supportingText = {
+                Text(
+                    text = if (availableModels.isNotEmpty()) {
+                        "Select from list or type manually"
+                    } else {
+                        "Enter model name manually"
                     }
+                )
+            },
+            trailingIcon = {
+                if (availableModels.isNotEmpty()) {
+                    IconButton(
+                        onClick = { expanded = !expanded },
+                        enabled = availableModels.isNotEmpty()
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Select model"
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Dropdown for model selection
+        if (availableModels.isNotEmpty()) {
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                availableModels.forEach { model ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(text = model.displayName, style = MaterialTheme.typography.bodyMedium)
+                                Text(text = model.id, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
+                        onClick = {
+                            onModelSelected(model)
+                            manualText = model.id
+                            expanded = false
+                        }
+                    )
                 }
             }
         }

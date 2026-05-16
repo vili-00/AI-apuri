@@ -4,8 +4,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.aiapuri.core.model.AppSettings
+import com.aiapuri.core.model.ConnectionTestResult
+import com.aiapuri.core.model.ModelInfo
 import com.aiapuri.core.model.ServerSettings
 import com.aiapuri.core.util.ServerUrlValidator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * UI state for the settings / onboarding form.
@@ -18,17 +24,19 @@ data class SettingsUiState(
     val defaultModel: String = "",
     val urlError: String? = null,
     val isSaving: Boolean = false,
-    val testConnectionState: TestConnectionState = TestConnectionState.Idle
+    val testConnectionState: TestConnectionState = TestConnectionState.Idle,
+    val fetchedModels: List<ModelInfo> = emptyList(),
+    val connectionErrorMessage: String? = null
 )
 
 /**
- * Placeholder states for the test-connection button (actual logic in Task 07).
+ * States for the test-connection button.
  */
-enum class TestConnectionState {
-    Idle,
-    Testing,
-    Success,
-    Error
+sealed class TestConnectionState {
+    object Idle : TestConnectionState()
+    object Testing : TestConnectionState()
+    data class Success(val models: List<ModelInfo> = emptyList()) : TestConnectionState()
+    data class Error(val message: String) : TestConnectionState()
 }
 
 /**
@@ -36,8 +44,14 @@ enum class TestConnectionState {
  */
 class SettingsViewModel(
     private val saveSettings: suspend (ServerSettings) -> Unit,
-    private val saveAppSettings: suspend (AppSettings) -> Unit
+    private val saveAppSettings: suspend (AppSettings) -> Unit,
+    private val testConnection: suspend (ServerSettings) -> ConnectionTestResult = { _ ->
+        // Default no-op for backward compatibility (e.g. tests without use case)
+        ConnectionTestResult.Unreachable("Not configured")
+    }
 ) {
+
+    private val ioScope = CoroutineScope(Dispatchers.IO)
 
     var uiState by mutableStateOf(SettingsUiState())
         private set
@@ -84,10 +98,12 @@ class SettingsViewModel(
         uiState = uiState.copy(defaultModel = model)
     }
 
-    /**
-     * Save current form values to persistent storage.
-     * Returns true if save is valid, false otherwise.
-     */
+    /** Select a model from the fetched list. */
+    fun onSelectModel(model: ModelInfo) {
+        uiState = uiState.copy(defaultModel = model.id)
+    }
+
+    /** Save current form values to persistent storage. */
     suspend fun save(): Boolean {
         val trimmedUrl = uiState.baseUrl.trim()
         val trimmedKey = uiState.apiKey.trim()
@@ -123,10 +139,125 @@ class SettingsViewModel(
         return true
     }
 
-    /** Placeholder for connection test (actual logic in Task 07). */
+    /** Test connection to the llama.cpp server. */
     fun testConnection() {
-        uiState = uiState.copy(testConnectionState = TestConnectionState.Testing)
-        // In Task 07 this will trigger an actual network test.
-        // For now, just simulate idle after a brief delay.
+        val trimmedUrl = uiState.baseUrl.trim()
+        if (trimmedUrl.isEmpty()) {
+            uiState = uiState.copy(
+                testConnectionState = TestConnectionState.Error("Enter a server URL first"),
+                connectionErrorMessage = "Enter a server URL first"
+            )
+            return
+        }
+
+        val urlResult = ServerUrlValidator.validate(trimmedUrl)
+        if (urlResult is ServerUrlValidator.Result.Invalid) {
+            uiState = uiState.copy(
+                testConnectionState = TestConnectionState.Error(urlResult.reason),
+                connectionErrorMessage = urlResult.reason
+            )
+            return
+        }
+
+        uiState = uiState.copy(
+            testConnectionState = TestConnectionState.Testing,
+            connectionErrorMessage = null
+        )
+
+        val settings = ServerSettings(
+            baseUrl = (urlResult as ServerUrlValidator.Result.Valid).normalizedUrl,
+            apiKey = uiState.apiKey.takeIf { it.isNotBlank() },
+            allowNoApiKey = uiState.allowNoApiKey,
+            defaultModel = uiState.defaultModel.takeIf { it.isNotBlank() }
+        )
+
+        ioScope.launch {
+            val result = try {
+                withContext(Dispatchers.IO) { testConnection(settings) }
+            } catch (e: Exception) {
+                ConnectionTestResult.Unreachable(e.message ?: "Unexpected error")
+            }
+
+            when (result) {
+                is ConnectionTestResult.Success -> {
+                    uiState = uiState.copy(
+                        testConnectionState = TestConnectionState.Success(result.models),
+                        fetchedModels = result.models,
+                        connectionErrorMessage = null
+                    )
+                    // If only one model and no default set, pre-fill it
+                    if (result.models.size == 1 && uiState.defaultModel.isBlank()) {
+                        uiState = uiState.copy(defaultModel = result.models.first().id)
+                    }
+                }
+                ConnectionTestResult.Unauthorized -> {
+                    uiState = uiState.copy(
+                        testConnectionState = TestConnectionState.Error(
+                            "Authentication failed. Check your API key."
+                        ),
+                        connectionErrorMessage = "Authentication failed. Check your API key."
+                    )
+                }
+                is ConnectionTestResult.Unreachable -> {
+                    uiState = uiState.copy(
+                        testConnectionState = TestConnectionState.Error(
+                            "Cannot reach server. ${result.detail.takeIf { it.isNotBlank() } ?: "Check URL and network."}"
+                        ),
+                        connectionErrorMessage = "Cannot reach server. ${result.detail.takeIf { it.isNotBlank() } ?: "Check URL and network."}"
+                    )
+                }
+                is ConnectionTestResult.ServerError -> {
+                    uiState = uiState.copy(
+                        testConnectionState = TestConnectionState.Error(
+                            "Server error ${result.code}. ${result.detail.takeIf { it.isNotBlank() } ?: ""}"
+                        ),
+                        connectionErrorMessage = "Server error ${result.code}. ${result.detail.takeIf { it.isNotBlank() } ?: ""}"
+                    )
+                }
+                ConnectionTestResult.InvalidUrl -> {
+                    uiState = uiState.copy(
+                        testConnectionState = TestConnectionState.Error("Invalid server URL"),
+                        connectionErrorMessage = "Invalid server URL"
+                    )
+                }
+            }
+        }
+    }
+
+    /** Refresh the model list without re-running the full connection test. */
+    fun refreshModels() {
+        val trimmedUrl = uiState.baseUrl.trim()
+        val urlResult = ServerUrlValidator.validate(trimmedUrl)
+        if (urlResult !is ServerUrlValidator.Result.Valid) return
+
+        val settings = ServerSettings(
+            baseUrl = urlResult.normalizedUrl,
+            apiKey = uiState.apiKey.takeIf { it.isNotBlank() },
+            allowNoApiKey = uiState.allowNoApiKey,
+            defaultModel = uiState.defaultModel.takeIf { it.isNotBlank() }
+        )
+
+        ioScope.launch {
+            val models = try {
+                withContext(Dispatchers.IO) {
+                    val client = com.aiapuri.data.llama.OkHttpLlamaApiClient(
+                        baseUrl = urlResult.normalizedUrl,
+                        apiKey = settings.apiKey
+                    )
+                    client.listModels()
+                }
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+            uiState = uiState.copy(
+                fetchedModels = models,
+                testConnectionState = if (models.isEmpty()) {
+                    TestConnectionState.Error("No models returned by server")
+                } else {
+                    TestConnectionState.Success(models)
+                }
+            )
+        }
     }
 }

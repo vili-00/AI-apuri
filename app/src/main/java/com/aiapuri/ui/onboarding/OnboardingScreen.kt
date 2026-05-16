@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.aiapuri.AiapuriApplication
+import com.aiapuri.domain.model.ConnectionTestUseCase
 import com.aiapuri.ui.components.SettingsForm
 import com.aiapuri.ui.settings.SettingsViewModel
 import kotlinx.coroutines.flow.first
@@ -53,10 +54,12 @@ fun OnboardingScreen(
 }
 
 /**
- * Create a SettingsViewModel wired to the application's SettingsRepository.
+ * Create a SettingsViewModel wired to the application's SettingsRepository
+ * and ConnectionTestUseCase.
  */
 @Composable
 fun rememberOnboardingViewModel(application: AiapuriApplication): SettingsViewModel {
+    val connectionTestUseCase = remember { ConnectionTestUseCase() }
     return remember {
         SettingsViewModel(
             saveSettings = { settings ->
@@ -64,6 +67,9 @@ fun rememberOnboardingViewModel(application: AiapuriApplication): SettingsViewMo
             },
             saveAppSettings = { settings ->
                 application.settingsRepository.saveAppSettings(settings)
+            },
+            testConnection = { serverSettings ->
+                connectionTestUseCase(serverSettings)
             }
         )
     }

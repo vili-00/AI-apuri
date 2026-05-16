@@ -52,38 +52,68 @@ class OkHttpLlamaApiClient(
     // ==================== Health check ====================
 
     override suspend fun healthCheck(): Boolean {
+        val result = detailedHealthCheck()
+        return result is DetailedHealthCheckResult.Success
+    }
+
+    /**
+     * Detailed health check that returns status information.
+     */
+    suspend fun detailedHealthCheck(): DetailedHealthCheckResult {
         val url = ServerUrlValidator.healthEndpoint(baseUrl)
         return try {
             val request = buildGetRequest(url)
             val response = httpClient.newCall(request).execute()
-            response.isSuccessful
-        } catch (_: Exception) {
-            false
+            when {
+                response.isSuccessful -> DetailedHealthCheckResult.Success
+                response.code == 401 -> DetailedHealthCheckResult.Unauthorized(response.message)
+                response.code == 403 -> DetailedHealthCheckResult.Unauthorized(response.message)
+                response.code >= 500 -> DetailedHealthCheckResult.ServerError(response.code, response.message)
+                else -> DetailedHealthCheckResult.ServerError(response.code, response.message)
+            }
+        } catch (e: Exception) {
+            DetailedHealthCheckResult.Unreachable(e.message ?: "Connection failed")
         }
     }
 
     // ==================== List models ====================
 
     override suspend fun listModels(): List<ModelInfo> {
+        val result = detailedListModels()
+        return if (result is DetailedModelsResult.Success) result.models else emptyList()
+    }
+
+    /**
+     * Detailed model list fetch that returns status information.
+     */
+    suspend fun detailedListModels(): DetailedModelsResult {
         val url = ServerUrlValidator.modelsEndpoint(baseUrl)
         val request = buildGetRequest(url)
-        val response = httpClient.newCall(request).execute()
-
-        if (!response.isSuccessful) {
-            return emptyList()
-        }
-
         return try {
-            val body = response.body?.string() ?: return emptyList()
-            val modelsResponse = json.decodeFromString<ModelsResponse>(body)
-            modelsResponse.data.map { modelObj ->
-                ModelInfo(
-                    id = modelObj.id,
-                    displayName = modelObj.id
-                )
+            val response = httpClient.newCall(request).execute()
+            when {
+                response.isSuccessful -> {
+                    val body = response.body?.string() ?: return DetailedModelsResult.Empty
+                    try {
+                        val modelsResponse = json.decodeFromString<ModelsResponse>(body)
+                        val models = modelsResponse.data.map { modelObj ->
+                            ModelInfo(
+                                id = modelObj.id,
+                                displayName = modelObj.id
+                            )
+                        }
+                        DetailedModelsResult.Success(models)
+                    } catch (e: Exception) {
+                        DetailedModelsResult.ParseError(e.message ?: "Failed to parse models response")
+                    }
+                }
+                response.code == 401 -> DetailedModelsResult.Unauthorized(response.message)
+                response.code == 403 -> DetailedModelsResult.Unauthorized(response.message)
+                response.code >= 500 -> DetailedModelsResult.ServerError(response.code, response.message)
+                else -> DetailedModelsResult.ServerError(response.code, response.message)
             }
-        } catch (_: Exception) {
-            emptyList()
+        } catch (e: Exception) {
+            DetailedModelsResult.Unreachable(e.message ?: "Connection failed")
         }
     }
 
@@ -211,3 +241,31 @@ class LlamaApiException(
     val code: Int,
     message: String
 ) : Exception(message)
+
+// ==================== Detailed health check results ====================
+
+/**
+ * Detailed result from a health check, distinguishing between
+ * success, auth failure, unreachable, and server errors.
+ */
+sealed class DetailedHealthCheckResult {
+    object Success : DetailedHealthCheckResult()
+    data class Unauthorized(val message: String) : DetailedHealthCheckResult()
+    data class Unreachable(val detail: String) : DetailedHealthCheckResult()
+    data class ServerError(val code: Int, val message: String) : DetailedHealthCheckResult()
+}
+
+// ==================== Detailed model list results ====================
+
+/**
+ * Detailed result from a model list fetch, distinguishing between
+ * success, auth failure, unreachable, server errors, and parse failures.
+ */
+sealed class DetailedModelsResult {
+    data class Success(val models: List<ModelInfo>) : DetailedModelsResult()
+    object Empty : DetailedModelsResult()
+    data class Unauthorized(val message: String) : DetailedModelsResult()
+    data class Unreachable(val detail: String) : DetailedModelsResult()
+    data class ServerError(val code: Int, val message: String) : DetailedModelsResult()
+    data class ParseError(val detail: String) : DetailedModelsResult()
+}
