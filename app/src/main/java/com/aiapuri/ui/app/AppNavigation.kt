@@ -1,11 +1,15 @@
 package com.aiapuri.ui.app
 
+import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.aiapuri.AiapuriApplication
 import com.aiapuri.ui.chat.ChatScreen
 import com.aiapuri.ui.conversations.ConversationListScreen
 import com.aiapuri.ui.navigation.Routes
@@ -26,6 +30,7 @@ fun AppNavigation(
     startDestination: String = Routes.ONBOARDING
 ) {
     val navController = rememberNavController()
+    val application = rememberApplication()
 
     NavHost(
         navController = navController,
@@ -38,7 +43,8 @@ fun AppNavigation(
                     navController.navigate(Routes.CONVERSATIONS) {
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
-                }
+                },
+                application = application
             )
         }
 
@@ -80,7 +86,8 @@ fun AppNavigation(
             SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                application = application
             )
         }
 
@@ -91,5 +98,16 @@ fun AppNavigation(
                 }
             )
         }
+    }
+}
+
+/**
+ * Retrieve the [AiapuriApplication] instance from the Compose context.
+ */
+@Composable
+private fun rememberApplication(): AiapuriApplication {
+    val context = LocalContext.current
+    return remember {
+        context.applicationContext as AiapuriApplication
     }
 }

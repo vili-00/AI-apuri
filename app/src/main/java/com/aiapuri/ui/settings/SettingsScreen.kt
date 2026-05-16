@@ -1,32 +1,45 @@
 package com.aiapuri.ui.settings
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import com.aiapuri.AiapuriApplication
+import com.aiapuri.ui.components.SettingsForm
+import kotlinx.coroutines.flow.first
 
 /**
  * Settings screen for configuring the llama.cpp server connection.
  *
- * Future tasks will add server URL, API key, model selection, and connection testing.
+ * Lets the user edit server URL, API key, no-key mode, and default model.
  */
-@androidx.compose.material3.ExperimentalMaterial3Api
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    application: AiapuriApplication,
     modifier: Modifier = Modifier
 ) {
+    val viewModel = rememberSettingsViewModel(application)
+
+    // Load current settings into the form
+    LaunchedEffect(Unit) {
+        val serverSettings = application.settingsRepository.serverSettingsFlow.first()
+        val appSettings = application.settingsRepository.appSettingsFlow.first()
+        viewModel.loadSettings(serverSettings, appSettings)
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -40,24 +53,35 @@ fun SettingsScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Server Settings",
-                style = MaterialTheme.typography.headlineSmall
-            )
-
-            Text(
-                text = "[Settings placeholder — server URL, API key, and connection test coming in Tasks 04–07]",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 16.dp)
+            SettingsForm(
+                viewModel = viewModel,
+                onSaved = {
+                    // Stay on settings screen after save — user can navigate back manually
+                },
+                showOnboardingHint = false
             )
         }
+    }
+}
+
+/**
+ * Create a SettingsViewModel wired to the application's SettingsRepository.
+ */
+@Composable
+fun rememberSettingsViewModel(application: AiapuriApplication): SettingsViewModel {
+    return remember {
+        SettingsViewModel(
+            saveSettings = { settings ->
+                application.settingsRepository.saveServerSettings(settings)
+            },
+            saveAppSettings = { settings ->
+                application.settingsRepository.saveAppSettings(settings)
+            }
+        )
     }
 }
