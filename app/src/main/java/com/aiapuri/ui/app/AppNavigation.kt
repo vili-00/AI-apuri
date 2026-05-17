@@ -26,6 +26,7 @@ import com.aiapuri.core.util.ServerUrlValidator
 import com.aiapuri.ui.chat.ChatScreen
 import com.aiapuri.ui.conversations.ConversationListScreen
 import com.aiapuri.ui.navigation.Routes
+import com.aiapuri.ui.lock.AppLockScreen
 import com.aiapuri.ui.onboarding.OnboardingScreen
 import com.aiapuri.ui.personas.PersonaScreen
 import com.aiapuri.ui.settings.SettingsScreen
@@ -38,6 +39,7 @@ import kotlinx.coroutines.launch
 private enum class StartupState {
     Loading,
     NeedsOnboarding,
+    NeedsAppLock,
     Ready
 }
 
@@ -81,10 +83,12 @@ fun AppNavigation(
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             scope.launch {
                 val serverSettings = application.settingsRepository.serverSettingsFlow.first()
-                startupState = if (serverSettings.isConfigured()) {
-                    StartupState.Ready
-                } else {
-                    StartupState.NeedsOnboarding
+                val appSettings = application.settingsRepository.appSettingsFlow.first()
+
+                startupState = when {
+                    !serverSettings.isConfigured() -> StartupState.NeedsOnboarding
+                    appSettings.appLockEnabled -> StartupState.NeedsAppLock
+                    else -> StartupState.Ready
                 }
             }
         }
@@ -107,6 +111,28 @@ fun AppNavigation(
             AppNavHost(
                 startDestination = Routes.ONBOARDING,
                 application = application,
+                modifier = modifier
+            )
+        }
+
+        StartupState.NeedsAppLock -> {
+            AppLockScreen(
+                onAuthenticated = {
+                    startupState = StartupState.Ready
+                },
+                onDisableAppLock = {
+                    scope.launch {
+                        application.settingsRepository.saveAppSettings(
+                            com.aiapuri.core.model.AppSettings(
+                                hasCompletedOnboarding = true,
+                                appLockEnabled = false,
+                                blockScreenshots = application.settingsRepository.appSettingsFlow.first().blockScreenshots,
+                                darkTheme = application.settingsRepository.appSettingsFlow.first().darkTheme
+                            )
+                        )
+                        startupState = StartupState.Ready
+                    }
+                },
                 modifier = modifier
             )
         }
@@ -187,6 +213,11 @@ private fun AppNavHost(
             SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToOnboarding = {
+                    navController.navigate(Routes.ONBOARDING) {
+                        popUpTo(Routes.CONVERSATIONS) { inclusive = true }
+                    }
                 },
                 application = application
             )

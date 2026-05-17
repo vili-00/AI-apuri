@@ -26,7 +26,13 @@ data class SettingsUiState(
     val isSaving: Boolean = false,
     val testConnectionState: TestConnectionState = TestConnectionState.Idle,
     val fetchedModels: List<ModelInfo> = emptyList(),
-    val connectionErrorMessage: String? = null
+    val connectionErrorMessage: String? = null,
+    // Privacy & security settings
+    val appLockEnabled: Boolean = false,
+    val blockScreenshots: Boolean = false,
+    val darkTheme: Boolean? = null,
+    val autoGenerateTitles: Boolean = true,
+    val showClearDataDialog: Boolean = false
 )
 
 /**
@@ -48,7 +54,9 @@ class SettingsViewModel(
     private val testConnection: suspend (ServerSettings) -> ConnectionTestResult = { _ ->
         // Default no-op for backward compatibility (e.g. tests without use case)
         ConnectionTestResult.Unreachable("Not configured")
-    }
+    },
+    private val clearAllDataUseCase: () -> Unit = { },
+    private val onCleared: () -> Unit = { }
 ) {
 
     private val ioScope = CoroutineScope(Dispatchers.IO)
@@ -62,7 +70,11 @@ class SettingsViewModel(
             baseUrl = serverSettings.baseUrl,
             apiKey = serverSettings.apiKey ?: "",
             allowNoApiKey = serverSettings.allowNoApiKey,
-            defaultModel = serverSettings.defaultModel ?: ""
+            defaultModel = serverSettings.defaultModel ?: "",
+            appLockEnabled = appSettings.appLockEnabled,
+            blockScreenshots = appSettings.blockScreenshots,
+            darkTheme = appSettings.darkTheme,
+            autoGenerateTitles = appSettings.autoGenerateTitles
         )
     }
 
@@ -135,6 +147,15 @@ class SettingsViewModel(
         )
 
         saveSettings(settings)
+        // Also persist privacy/security settings
+        val appSettings = AppSettings(
+            hasCompletedOnboarding = true,
+            darkTheme = uiState.darkTheme,
+            appLockEnabled = uiState.appLockEnabled,
+            blockScreenshots = uiState.blockScreenshots,
+            autoGenerateTitles = uiState.autoGenerateTitles
+        )
+        saveAppSettings(appSettings)
         uiState = uiState.copy(isSaving = false)
         return true
     }
@@ -258,6 +279,62 @@ class SettingsViewModel(
                     TestConnectionState.Success(models)
                 }
             )
+        }
+    }
+
+    // ==================== Privacy & Security ====================
+
+    /** Toggle app lock (biometric/device credential). */
+    fun onAppLockToggled(enabled: Boolean) {
+        uiState = uiState.copy(appLockEnabled = enabled)
+    }
+
+    /** Toggle screenshot blocking. */
+    fun onBlockScreenshotsToggled(enabled: Boolean) {
+        uiState = uiState.copy(blockScreenshots = enabled)
+    }
+
+    /** Show the clear-all-data confirmation dialog. */
+    fun showClearDataDialog() {
+        uiState = uiState.copy(showClearDataDialog = true)
+    }
+
+    /** Hide the clear-all-data confirmation dialog. */
+    fun hideClearDataDialog() {
+        uiState = uiState.copy(showClearDataDialog = false)
+    }
+
+    /**
+     * Execute the clear-all-data action.
+     *
+     * Uses ActivityManager.clearApplicationUserData() which terminates
+     * the app process. The dialog is dismissed first so the user sees
+     * a clean state on restart.
+     */
+    fun onClearDataConfirmed() {
+        // Dismiss the dialog before clearing — the process will be terminated
+        uiState = uiState.copy(showClearDataDialog = false)
+        clearAllDataUseCase()
+        // onCleared is called in case clearApplicationUserData does not
+        // terminate the process on this device (older Android versions).
+        onCleared()
+    }
+
+    /**
+     * Save app-specific settings (privacy/security toggles).
+     * Call this after toggling app lock or screenshot blocking.
+     * Preserves darkTheme and autoGenerateTitles from the stored settings.
+     */
+    fun saveAppSettingsState() {
+        ioScope.launch {
+            val currentAppSettings = AppSettings(
+                hasCompletedOnboarding = true,
+                darkTheme = uiState.darkTheme,
+                appLockEnabled = uiState.appLockEnabled,
+                blockScreenshots = uiState.blockScreenshots,
+                autoGenerateTitles = uiState.autoGenerateTitles
+            )
+            saveAppSettings(currentAppSettings)
         }
     }
 }

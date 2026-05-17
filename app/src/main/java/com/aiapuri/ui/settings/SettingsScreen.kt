@@ -29,10 +29,11 @@ import kotlinx.coroutines.flow.first
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToOnboarding: () -> Unit,
     application: AiapuriApplication,
     modifier: Modifier = Modifier
 ) {
-    val viewModel = rememberSettingsViewModel(application)
+    val viewModel = rememberSettingsViewModel(application, onNavigateToOnboarding)
 
     // Load current settings into the form
     LaunchedEffect(Unit) {
@@ -75,8 +76,12 @@ fun SettingsScreen(
  * and ConnectionTestUseCase.
  */
 @Composable
-fun rememberSettingsViewModel(application: AiapuriApplication): SettingsViewModel {
+fun rememberSettingsViewModel(
+    application: AiapuriApplication,
+    onNavigateToOnboarding: () -> Unit
+): SettingsViewModel {
     val connectionTestUseCase = remember { ConnectionTestUseCase() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     return remember {
         SettingsViewModel(
             saveSettings = { settings ->
@@ -87,6 +92,15 @@ fun rememberSettingsViewModel(application: AiapuriApplication): SettingsViewMode
             },
             testConnection = { serverSettings ->
                 connectionTestUseCase(serverSettings)
+            },
+            clearAllDataUseCase = {
+                // clearApplicationUserData() is synchronous and terminates
+                // the app process. No coroutine needed.
+                application.clearAllData()
+            },
+            onCleared = {
+                // After clearing all data, navigate back to onboarding
+                onNavigateToOnboarding()
             }
         )
     }

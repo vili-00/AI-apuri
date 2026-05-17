@@ -93,6 +93,9 @@ dependencies {
     // AndroidX Core
     implementation("androidx.core:core-ktx:1.15.0")
 
+    // Biometric / Device credential for app lock
+    implementation("androidx.biometric:biometric:1.1.0")
+
     // Debug / Tooling
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

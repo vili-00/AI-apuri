@@ -129,4 +129,13 @@ class DataStoreSettingsRepository(
             .map { prefs -> prefs[KEY_ONBOARDING_DONE] ?: false }
             .first()
     }
+
+    override suspend fun clearAllData() {
+        // Clear DataStore preferences
+        dataStore.edit { prefs ->
+            prefs.clear()
+        }
+        // Clear encrypted secrets
+        encryptedStorage.remove(ENCRYPTED_KEY_API_KEY)
+    }
 }

@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.aiapuri.core.util.TitleGeneratorTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-05-17T15:10:31" hostname="pi-sandbox" time="0.027">
+<testsuite name="com.aiapuri.core.util.TitleGeneratorTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-05-17T17:15:47" hostname="pi-sandbox" time="0.017">
   <properties/>
-  <testcase name="generateTitle handles single word" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.02"/>
+  <testcase name="generateTitle handles single word" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.013"/>
   <testcase name="generateTitle truncates at word boundary when possible" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.002"/>
-  <testcase name="generateTitle returns default for empty input" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.001"/>
-  <testcase name="generateTitle handles exactly max length" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.001"/>
+  <testcase name="generateTitle returns default for empty input" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
+  <testcase name="generateTitle handles exactly max length" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
   <testcase name="generateTitle uses first line for multi-line messages" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
   <testcase name="isPlaceholderTitle returns false for custom title" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
   <testcase name="generateTitle preserves internal punctuation" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
-  <testcase name="isPlaceholderTitle returns true for default title" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
+  <testcase name="isPlaceholderTitle returns true for default title" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.001"/>
   <testcase name="generateTitle returns short message unchanged" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
   <testcase name="generateTitle trims whitespace" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
   <testcase name="generateTitle strips trailing punctuation" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
-  <testcase name="generateTitle truncates long messages with ellipsis" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.001"/>
+  <testcase name="generateTitle truncates long messages with ellipsis" classname="com.aiapuri.core.util.TitleGeneratorTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

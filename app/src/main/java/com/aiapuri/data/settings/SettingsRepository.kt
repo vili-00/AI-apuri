@@ -29,4 +29,10 @@ interface SettingsRepository {
 
     /** Check whether onboarding has been completed. */
     suspend fun hasCompletedOnboarding(): Boolean
+
+    /**
+     * Clear all locally stored data: conversations, messages, personas,
+     * settings, and encrypted secrets. Returns the app to factory state.
+     */
+    suspend fun clearAllData()
 }

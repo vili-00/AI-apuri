@@ -17,11 +17,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PhotoCameraBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -80,6 +84,44 @@ fun SettingsForm(
     }
 
     val state = viewModel.uiState
+
+    // Clear all data confirmation dialog
+    if (state.showClearDataDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.hideClearDataDialog() },
+            icon = {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text("Clear All Data") },
+            text = {
+                Text(
+                    "This will permanently delete all conversations, messages, personas, " +
+                    "server settings, API keys, and app lock settings. The app will close " +
+                    "and restart. Reopening the app shows the onboarding screen. " +
+                    "This action cannot be undone."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.onClearDataConfirmed() },
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Clear All")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.hideClearDataDialog() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -204,6 +246,14 @@ fun SettingsForm(
             availableModels = state.fetchedModels,
             onModelChanged = viewModel::onDefaultModelChanged,
             onModelSelected = viewModel::onSelectModel
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ---- Privacy & Security section ----
+        PrivacyAndSecuritySection(
+            viewModel = viewModel,
+            showOnboardingHint = showOnboardingHint
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -443,4 +493,131 @@ private fun ModelSelector(
 /** Extension to get a warm warning color from the scheme. */
 private fun androidx.compose.material3.ColorScheme.warningColor(): Color {
     return Color(0xFFFFA000)
+}
+
+/**
+ * Privacy & Security section of the settings form.
+ *
+ * Shows toggles for app lock and screenshot blocking,
+ * plus a clear-all-data action. Hidden during onboarding.
+ */
+@Composable
+private fun PrivacyAndSecuritySection(
+    viewModel: SettingsViewModel,
+    showOnboardingHint: Boolean,
+    modifier: Modifier = Modifier
+) {
+    // Don't show privacy controls during onboarding — user hasn't configured the server yet
+    if (showOnboardingHint) return
+
+    val state = viewModel.uiState
+
+    Text(
+        text = "Privacy & Security",
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // App Lock toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "App Lock",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "Require biometric or device credential to unlock",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = state.appLockEnabled,
+                    onCheckedChange = { enabled ->
+                        viewModel.onAppLockToggled(enabled)
+                        viewModel.saveAppSettingsState()
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Screenshot blocking toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PhotoCameraBack,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Block Screenshots",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "Prevent screenshots and screen recording",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = state.blockScreenshots,
+                    onCheckedChange = { enabled ->
+                        viewModel.onBlockScreenshotsToggled(enabled)
+                        viewModel.saveAppSettingsState()
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Clear all data button
+            TextButton(
+                onClick = { viewModel.showClearDataDialog() },
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Clear All Data",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
 }

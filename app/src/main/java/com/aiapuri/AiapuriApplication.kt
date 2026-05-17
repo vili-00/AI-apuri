@@ -1,6 +1,8 @@
 package com.aiapuri
 
+import android.app.ActivityManager
 import android.app.Application
+import android.content.Context
 import com.aiapuri.core.database.AiapuriDatabase
 import com.aiapuri.data.conversation.ConversationRepository
 import com.aiapuri.data.conversation.DatabaseConversationRepository
@@ -49,6 +51,20 @@ class AiapuriApplication : Application() {
         CoroutineScope(Dispatchers.IO).launch {
             PersonaSeeder(personaRepository).seedIfEmpty()
         }
+    }
+
+    /**
+     * Clear all locally stored data using Android's built-in app data reset API.
+     *
+     * This behaves like Settings → Apps → AI-apuri → Storage → Clear data.
+     * All conversations, messages, personas, server settings, API keys,
+     * and app lock settings are wiped. The app process is terminated and
+     * reopening the app shows the onboarding screen.
+     */
+    fun clearAllData() {
+        val activityManager =
+            getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        activityManager.clearApplicationUserData()
     }
 }
 
