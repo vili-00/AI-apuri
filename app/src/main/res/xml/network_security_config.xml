@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        AI-apuri V1 connects to a user-configured local/Tailscale llama.cpp server.
+        HTTP is allowed because llama.cpp is commonly served as http://host:port.
+        Do not expose the llama.cpp server directly to the public internet.
+    -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
