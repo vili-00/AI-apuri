@@ -36,6 +36,9 @@ interface ConversationDao {
     @Query("UPDATE conversations SET updated_at = :updatedAt WHERE id = :id")
     suspend fun updateTimestamp(id: String, updatedAt: Long)
 
+    @Query("UPDATE conversations SET persona_id = :personaId, updated_at = :updatedAt WHERE id = :id")
+    suspend fun updatePersona(id: String, personaId: String?, updatedAt: Long)
+
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun deleteConversation(id: String)
 

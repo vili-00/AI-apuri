@@ -35,6 +35,9 @@ interface ConversationRepository {
     /** Update the model for a conversation. */
     suspend fun updateConversationModel(id: String, model: String)
 
+    /** Update the persona for a conversation. */
+    suspend fun updateConversationPersona(id: String, personaId: String?)
+
     /** Save a message to a conversation. */
     suspend fun saveMessage(message: Message)
 

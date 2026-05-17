@@ -10,8 +10,10 @@ import com.aiapuri.core.model.Message
 import com.aiapuri.core.model.MessageRole
 import com.aiapuri.core.model.MessageStatus
 import com.aiapuri.core.model.ModelInfo
+import com.aiapuri.core.model.Persona
 import com.aiapuri.data.conversation.ConversationRepository
 import com.aiapuri.data.llama.OkHttpLlamaApiClient
+import com.aiapuri.data.persona.PersonaRepository
 import com.aiapuri.data.settings.SettingsRepository
 import com.aiapuri.domain.chat.StreamingChatUseCase
 import com.aiapuri.domain.chat.StreamingChatUseCase.StreamingUpdate
@@ -55,7 +57,11 @@ data class ChatUiState(
     /** Available models fetched from the server. */
     val availableModels: List<ModelInfo> = emptyList(),
     /** True while fetching the model list. */
-    val isFetchingModels: Boolean = false
+    val isFetchingModels: Boolean = false,
+    /** Currently selected persona ID for this conversation. */
+    val currentPersonaId: String? = null,
+    /** Available personas from the database. */
+    val availablePersonas: List<Persona> = emptyList()
 )
 
 /**
@@ -68,6 +74,7 @@ data class ChatUiState(
 class ChatViewModel(
     private val conversationRepository: ConversationRepository,
     private val settingsRepository: SettingsRepository,
+    private val personaRepository: PersonaRepository,
     private val streamingChatUseCase: StreamingChatUseCase,
     conversationId: String
 ) : ViewModel() {
@@ -93,7 +100,8 @@ class ChatViewModel(
                 uiState = uiState.copy(
                     conversationTitle = conv.title,
                     conversationExists = true,
-                    currentModel = conv.model.takeIf { it.isNotBlank() } ?: ""
+                    currentModel = conv.model.takeIf { it.isNotBlank() } ?: "",
+                    currentPersonaId = conv.personaId
                 )
             } else {
                 // Check if this is a "new" conversation request
@@ -119,6 +127,23 @@ class ChatViewModel(
             // Collect messages
             messageFlow.collect { messages ->
                 uiState = uiState.copy(messages = messages)
+            }
+        }
+
+        // Load personas
+        viewModelScope.launch {
+            try {
+                val personas = personaRepository.getAllPersonas()
+                uiState = uiState.copy(availablePersonas = personas)
+                // If no persona selected and this is a new conversation, pre-select the default
+                if (uiState.currentPersonaId == null && !uiState.conversationExists) {
+                    val defaultPersona = personaRepository.getDefaultPersona()
+                    if (defaultPersona != null) {
+                        uiState = uiState.copy(currentPersonaId = defaultPersona.id)
+                    }
+                }
+            } catch (e: Exception) {
+                // Silently fail — chat works without personas
             }
         }
     }
@@ -180,6 +205,26 @@ class ChatViewModel(
         }
     }
 
+    // ==================== Persona Selection ====================
+
+    /**
+     * Switch the persona for the current conversation.
+     * Pass null to clear the persona selection.
+     */
+    fun switchPersona(personaId: String?) {
+        uiState = uiState.copy(currentPersonaId = personaId)
+        // If the conversation already exists, persist the persona change
+        if (uiState.conversationExists && convId.isNotEmpty() && convId != "new") {
+            viewModelScope.launch {
+                try {
+                    conversationRepository.updateConversationPersona(convId, personaId)
+                } catch (e: Exception) {
+                    // Silently fail — persona will be used for next request regardless
+                }
+            }
+        }
+    }
+
     /**
      * Send a user message and get a streaming assistant response.
      *
@@ -213,7 +258,8 @@ class ChatViewModel(
                         title = text.take(50) + if (text.length > 50) "…" else "",
                         createdAt = Instant.now(),
                         updatedAt = Instant.now(),
-                        model = model
+                        model = model,
+                        personaId = uiState.currentPersonaId
                     )
                     conversationRepository.createConversation(newConv)
                     currentConvId = newConv.id

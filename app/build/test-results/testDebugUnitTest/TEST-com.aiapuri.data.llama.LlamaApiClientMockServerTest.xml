@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.aiapuri.data.llama.LlamaApiClientMockServerTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-05-17T14:32:12" hostname="pi-sandbox" time="0.585">
+<testsuite name="com.aiapuri.data.llama.LlamaApiClientMockServerTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-05-17T14:45:57" hostname="pi-sandbox" time="0.55">
   <properties/>
-  <testcase name="healthCheck returns false when server is unreachable" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.409"/>
-  <testcase name="healthCheck hits health endpoint" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.027"/>
+  <testcase name="healthCheck returns false when server is unreachable" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.388"/>
+  <testcase name="healthCheck hits health endpoint" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.017"/>
   <testcase name="detailedHealthCheck returns Unreachable on disconnect" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.005"/>
-  <testcase name="listModels returns empty on 401" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.009"/>
-  <testcase name="detailedHealthCheck returns Success on 200" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.007"/>
-  <testcase name="healthCheck returns false when server returns 500" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.007"/>
-  <testcase name="detailedListModels returns Success with models" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.043"/>
-  <testcase name="detailedListModels returns Unreachable on disconnect" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.006"/>
-  <testcase name="detailedHealthCheck returns Unauthorized on 401" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.008"/>
-  <testcase name="listModels returns models on successful response" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.005"/>
-  <testcase name="healthCheck returns true when server responds 200" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.007"/>
-  <testcase name="detailedListModels returns ServerError on 500" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.014"/>
-  <testcase name="detailedListModels returns ParseError on malformed JSON" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.006"/>
-  <testcase name="requests do not include Authorization header when API key is null" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.005"/>
-  <testcase name="listModels hits v1 models endpoint" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.009"/>
-  <testcase name="detailedListModels returns Unauthorized on 401" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.007"/>
+  <testcase name="listModels returns empty on 401" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.008"/>
+  <testcase name="detailedHealthCheck returns Success on 200" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.006"/>
+  <testcase name="healthCheck returns false when server returns 500" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.006"/>
+  <testcase name="detailedListModels returns Success with models" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.048"/>
+  <testcase name="detailedListModels returns Unreachable on disconnect" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.005"/>
+  <testcase name="detailedHealthCheck returns Unauthorized on 401" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.006"/>
+  <testcase name="listModels returns models on successful response" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.014"/>
+  <testcase name="healthCheck returns true when server responds 200" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.006"/>
+  <testcase name="detailedListModels returns ServerError on 500" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.005"/>
+  <testcase name="detailedListModels returns ParseError on malformed JSON" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.007"/>
+  <testcase name="requests do not include Authorization header when API key is null" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.01"/>
+  <testcase name="listModels hits v1 models endpoint" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.004"/>
+  <testcase name="detailedListModels returns Unauthorized on 401" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.005"/>
   <testcase name="detailedHealthCheck returns ServerError on 503" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.005"/>
   <testcase name="requests include Authorization header when API key is set" classname="com.aiapuri.data.llama.LlamaApiClientMockServerTest" time="0.004"/>
   <system-out><![CDATA[]]></system-out>

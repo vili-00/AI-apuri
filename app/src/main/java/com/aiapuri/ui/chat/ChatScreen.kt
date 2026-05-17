@@ -17,11 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aiapuri.AiapuriApplication
 import com.aiapuri.core.model.Message
 import com.aiapuri.core.model.MessageRole
 import com.aiapuri.core.model.ModelInfo
+import com.aiapuri.core.model.Persona
 import com.aiapuri.domain.chat.StreamingChatUseCase
 import kotlinx.coroutines.launch
 
@@ -80,6 +82,13 @@ fun ChatScreen(
                         isFetchingModels = state.isFetchingModels,
                         onModelSelected = viewModel::switchModel,
                         onRefreshModels = viewModel::fetchModels
+                    )
+
+                    // Persona selector dropdown
+                    ChatPersonaSelector(
+                        currentPersonaId = state.currentPersonaId,
+                        availablePersonas = state.availablePersonas,
+                        onPersonaSelected = viewModel::switchPersona
                     )
 
                     // Streaming indicator in top bar
@@ -506,6 +515,118 @@ private fun StreamingStopButton(
 }
 
 /**
+ * Persona selector shown in the chat top bar.
+ *
+ * Allows the user to switch the persona for the current conversation.
+ */
+@Composable
+private fun ChatPersonaSelector(
+    currentPersonaId: String?,
+    availablePersonas: List<Persona>,
+    onPersonaSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    // Find the currently selected persona
+    val currentPersona = availablePersonas.find { it.id == currentPersonaId }
+
+    Box(modifier = modifier) {
+        // Button to open the dropdown
+        TextButton(onClick = { expanded = true }) {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = "Select persona",
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = currentPersona?.name ?: "Persona",
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1
+            )
+        }
+
+        // Dropdown menu
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            // "None" option to clear persona
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Clear,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text("No persona (default)")
+                    }
+                },
+                onClick = {
+                    onPersonaSelected(null)
+                    expanded = false
+                }
+            )
+
+            if (availablePersonas.isNotEmpty()) {
+                androidx.compose.material3.HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+
+                availablePersonas.forEach { persona ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = persona.name,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    if (persona.isDefault) {
+                                        Text(
+                                            text = "(default)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                if (persona.description.isNotBlank()) {
+                                    Text(
+                                        text = persona.description,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            onPersonaSelected(persona.id)
+                            expanded = false
+                        }
+                    )
+                }
+            } else {
+                DropdownMenuItem(
+                    text = { Text("No personas available") },
+                    enabled = false,
+                    onClick = { }
+                )
+            }
+        }
+    }
+}
+
+/**
  * Model selector shown in the chat top bar.
  *
  * Allows the user to switch the model for the current conversation.
@@ -651,6 +772,7 @@ fun rememberChatViewModel(
         ChatViewModel(
             conversationRepository = application.conversationRepository,
             settingsRepository = application.settingsRepository,
+            personaRepository = application.personaRepository,
             streamingChatUseCase = streamingChatUseCase,
             conversationId = conversationId
         )

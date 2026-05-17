@@ -8,6 +8,10 @@ import com.aiapuri.data.persona.DatabasePersonaRepository
 import com.aiapuri.data.persona.PersonaRepository
 import com.aiapuri.data.settings.DataStoreSettingsRepository
 import com.aiapuri.data.settings.SettingsRepository
+import com.aiapuri.domain.persona.PersonaSeeder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * AI-apuri Application entry point.
@@ -40,6 +44,11 @@ class AiapuriApplication : Application() {
         super.onCreate()
         // Eagerly initialize settings to catch Keystore errors early
         settingsRepository
+
+        // Seed default personas on first launch (no-op if personas already exist)
+        CoroutineScope(Dispatchers.IO).launch {
+            PersonaSeeder(personaRepository).seedIfEmpty()
+        }
     }
 }
 

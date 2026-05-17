@@ -37,6 +37,8 @@ public final class ConversationDao_Impl implements ConversationDao {
 
   private final SharedSQLiteStatement __preparedStmtOfUpdateTimestamp;
 
+  private final SharedSQLiteStatement __preparedStmtOfUpdatePersona;
+
   private final SharedSQLiteStatement __preparedStmtOfDeleteConversation;
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteAllConversations;
@@ -75,6 +77,14 @@ public final class ConversationDao_Impl implements ConversationDao {
       @NonNull
       public String createQuery() {
         final String _query = "UPDATE conversations SET updated_at = ? WHERE id = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfUpdatePersona = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "UPDATE conversations SET persona_id = ?, updated_at = ? WHERE id = ?";
         return _query;
       }
     };
@@ -138,6 +148,40 @@ public final class ConversationDao_Impl implements ConversationDao {
           }
         } finally {
           __preparedStmtOfUpdateTimestamp.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object updatePersona(final String id, final String personaId, final long updatedAt,
+      final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdatePersona.acquire();
+        int _argIndex = 1;
+        if (personaId == null) {
+          _stmt.bindNull(_argIndex);
+        } else {
+          _stmt.bindString(_argIndex, personaId);
+        }
+        _argIndex = 2;
+        _stmt.bindLong(_argIndex, updatedAt);
+        _argIndex = 3;
+        _stmt.bindString(_argIndex, id);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfUpdatePersona.release(_stmt);
         }
       }
     }, $completion);

@@ -69,6 +69,10 @@ class DatabaseConversationRepository(
         conversationDao.insertConversation(updated)
     }
 
+    override suspend fun updateConversationPersona(id: String, personaId: String?) {
+        conversationDao.updatePersona(id, personaId, Instant.now().epochSecond)
+    }
+
     override suspend fun deleteConversation(id: String) {
         messageDao.deleteMessagesForConversation(id)
         conversationDao.deleteConversation(id)
