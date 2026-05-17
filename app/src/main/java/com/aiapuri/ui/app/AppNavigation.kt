@@ -1,36 +1,137 @@
 package com.aiapuri.ui.app
 
-import android.content.Context
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.aiapuri.AiapuriApplication
+import com.aiapuri.core.model.ServerSettings
+import com.aiapuri.core.util.ServerUrlValidator
 import com.aiapuri.ui.chat.ChatScreen
 import com.aiapuri.ui.conversations.ConversationListScreen
 import com.aiapuri.ui.navigation.Routes
 import com.aiapuri.ui.onboarding.OnboardingScreen
 import com.aiapuri.ui.personas.PersonaScreen
 import com.aiapuri.ui.settings.SettingsScreen
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+
+/**
+ * Startup state determining where the app should navigate on launch.
+ */
+private enum class StartupState {
+    Loading,
+    NeedsOnboarding,
+    Ready
+}
+
+/**
+ * Check whether the user's server settings are sufficient to use the app.
+ *
+ * "Configured" means:
+ * - Server base URL is present and valid
+ * - API key is present, OR no-key development mode is enabled
+ * - Default model is set
+ */
+private fun ServerSettings.isConfigured(): Boolean {
+    if (baseUrl.isBlank()) return false
+    if (ServerUrlValidator.validate(baseUrl) is ServerUrlValidator.Result.Invalid) return false
+    if (apiKey.isNullOrBlank() && !allowNoApiKey) return false
+    if (defaultModel.isNullOrBlank()) return false
+    return true
+}
 
 /**
  * Root navigation graph for the app.
  *
- * Onboarding is shown first. After the user completes onboarding (future task),
- * the app navigates to the conversation list.
+ * On launch, the app checks saved server settings:
+ * - If configured → conversations list
+ * - If not configured → onboarding
+ * A splash screen is shown briefly while settings are loaded to avoid flicker.
  */
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
 fun AppNavigation(
-    modifier: Modifier = Modifier,
-    startDestination: String = Routes.ONBOARDING
+    modifier: Modifier = Modifier
+) {
+    val application = rememberApplication()
+    val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var startupState by remember { mutableStateOf(StartupState.Loading) }
+
+    // Load settings asynchronously on first compose
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            scope.launch {
+                val serverSettings = application.settingsRepository.serverSettingsFlow.first()
+                startupState = if (serverSettings.isConfigured()) {
+                    StartupState.Ready
+                } else {
+                    StartupState.NeedsOnboarding
+                }
+            }
+        }
+    }
+
+    when (startupState) {
+        StartupState.Loading -> {
+            // Splash screen while settings are loading
+            Surface(modifier = modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+
+        StartupState.NeedsOnboarding -> {
+            AppNavHost(
+                startDestination = Routes.ONBOARDING,
+                application = application,
+                modifier = modifier
+            )
+        }
+
+        StartupState.Ready -> {
+            AppNavHost(
+                startDestination = Routes.CONVERSATIONS,
+                application = application,
+                modifier = modifier
+            )
+        }
+    }
+}
+
+/**
+ * Shared NavHost configuration.
+ */
+@androidx.compose.material3.ExperimentalMaterial3Api
+@Composable
+private fun AppNavHost(
+    startDestination: String,
+    application: AiapuriApplication,
+    modifier: Modifier
 ) {
     val navController = rememberNavController()
-    val application = rememberApplication()
 
     NavHost(
         navController = navController,
