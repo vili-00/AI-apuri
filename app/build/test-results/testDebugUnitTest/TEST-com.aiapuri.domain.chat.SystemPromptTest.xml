@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.aiapuri.domain.chat.SystemPromptTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-05-17T17:46:40" hostname="pi-sandbox" time="0.002">
+  <properties/>
+  <testcase name="compose appends persona prompt with double newline" classname="com.aiapuri.domain.chat.SystemPromptTest" time="0.001"/>
+  <testcase name="compose returns base prompt when persona is blank" classname="com.aiapuri.domain.chat.SystemPromptTest" time="0.0"/>
+  <testcase name="compose returns base prompt when persona is empty" classname="com.aiapuri.domain.chat.SystemPromptTest" time="0.0"/>
+  <testcase name="compose with long persona prompt does not truncate" classname="com.aiapuri.domain.chat.SystemPromptTest" time="0.0"/>
+  <testcase name="compose returns base prompt when no persona" classname="com.aiapuri.domain.chat.SystemPromptTest" time="0.0"/>
+  <testcase name="compose preserves multi-line persona prompt" classname="com.aiapuri.domain.chat.SystemPromptTest" time="0.0"/>
+  <testcase name="compose includes base prompt warning about no web access" classname="com.aiapuri.domain.chat.SystemPromptTest" time="0.0"/>
+  <testcase name="compose result identifies as AI-apuri" classname="com.aiapuri.domain.chat.SystemPromptTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -60,7 +60,7 @@ object ErrorMapper {
                 AppError.Unauthorized
             lower.contains("forbidden") || lower.contains("403") ->
                 AppError.Unauthorized
-            lower.contains("timeout") ->
+            lower.contains("timeout") || lower.contains("timed out") ->
                 AppError.Timeout
             lower.contains("connection") || lower.contains("refused") || lower.contains("unreachable") ->
                 AppError.Unreachable(technicalDetail = redact(rawMessage))
