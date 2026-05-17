@@ -80,11 +80,14 @@ fun ChatScreen(
                 .padding(paddingValues)
         ) {
             // Error banner with retry
-            AnimatedVisibility(visible = state.errorMessage != null) {
+            AnimatedVisibility(visible = state.error != null) {
+                val currentError = state.error
                 ChatErrorBanner(
-                    message = state.errorMessage!!,
+                    message = currentError?.userMessage ?: "An error occurred",
+                    technicalMessage = currentError?.technicalMessage,
                     onDismiss = { viewModel.dismissError() },
-                    onRetry = { viewModel.retryLastMessage() }
+                    onRetry = { viewModel.retryLastMessage() },
+                    retryEnabled = currentError?.canRetry != false
                 )
             }
 
@@ -165,8 +168,10 @@ private fun ChatEmptyState(modifier: Modifier = Modifier) {
 @Composable
 private fun ChatErrorBanner(
     message: String,
+    technicalMessage: String?,
     onDismiss: () -> Unit,
     onRetry: () -> Unit,
+    retryEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -176,30 +181,39 @@ private fun ChatErrorBanner(
             contentColor = MaterialTheme.colorScheme.onErrorContainer
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.Error,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = onRetry) {
-                Icon(Icons.Default.Replay, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Retry")
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Error,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onRetry, enabled = retryEnabled) {
+                    Icon(Icons.Default.Replay, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Retry")
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Dismiss")
+                }
             }
-            TextButton(onClick = onDismiss) {
-                Text("Dismiss")
+            // Show technical detail if available
+            technicalMessage?.let { detail ->
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(start = 28.dp, top = 4.dp)
+                )
             }
         }
     }

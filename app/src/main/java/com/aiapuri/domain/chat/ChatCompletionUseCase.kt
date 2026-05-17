@@ -40,7 +40,11 @@ class ChatCompletionUseCase(
      */
     sealed class Result {
         data class Success(val assistantMessage: Message) : Result()
-        data class Error(val message: String, val isRetryable: Boolean = true) : Result()
+        data class Error(
+            val message: String,
+            val technicalDetail: String? = null,
+            val isRetryable: Boolean = true
+        ) : Result()
     }
 
     /**
@@ -119,19 +123,21 @@ class ChatCompletionUseCase(
             Result.Success(assistantMessage)
 
         } catch (e: LlamaApiException) {
+            val detail = e.message?.take(200) ?: "no details"
             when (e.code) {
-                401 -> Result.Error("Authentication failed. Check your API key.", isRetryable = false)
-                404 -> Result.Error("Model not found on server.", isRetryable = false)
-                429 -> Result.Error("Rate limited. Please try again later.", isRetryable = true)
-                in 500..599 -> Result.Error("Server error (${e.code}). Please try again.", isRetryable = true)
-                else -> Result.Error("Request failed (${e.code}): ${e.message}", isRetryable = true)
+                401 -> Result.Error("Authentication failed. Check your API key.", technicalDetail = "HTTP 401", isRetryable = false)
+                404 -> Result.Error("Model not found on server.", technicalDetail = "HTTP 404", isRetryable = false)
+                429 -> Result.Error("Rate limited. Please try again later.", technicalDetail = "HTTP 429", isRetryable = true)
+                in 500..599 -> Result.Error("Server error (${e.code}). Please try again.", technicalDetail = "HTTP ${e.code}", isRetryable = true)
+                else -> Result.Error("Request failed (${e.code})", technicalDetail = detail, isRetryable = true)
             }
         } catch (e: java.net.ConnectException) {
-            Result.Error("Cannot reach server. Check your connection.", isRetryable = true)
+            Result.Error("Cannot reach server. Check your connection.", technicalDetail = e.javaClass.simpleName, isRetryable = true)
         } catch (e: java.net.SocketTimeoutException) {
-            Result.Error("Request timed out. The server may be busy.", isRetryable = true)
+            Result.Error("Request timed out. The server may be busy.", technicalDetail = e.javaClass.simpleName, isRetryable = true)
         } catch (e: Exception) {
-            Result.Error("Unexpected error: ${e.message}", isRetryable = true)
+            val detail = e.message?.take(200) ?: e.javaClass.simpleName
+            Result.Error("Unexpected error", technicalDetail = detail, isRetryable = true)
         }
     }
 

@@ -35,6 +35,8 @@ public final class MessageDao_Impl implements MessageDao {
 
   private final EntityInsertionAdapter<MessageEntity> __insertionAdapterOfMessageEntity;
 
+  private final SharedSQLiteStatement __preparedStmtOfUpdateStatusOnly;
+
   private final SharedSQLiteStatement __preparedStmtOfUpdateMessageStatus;
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteMessagesForConversation;
@@ -59,6 +61,14 @@ public final class MessageDao_Impl implements MessageDao {
         statement.bindString(4, entity.getContent());
         statement.bindLong(5, entity.getCreatedAt());
         statement.bindString(6, entity.getStatus());
+      }
+    };
+    this.__preparedStmtOfUpdateStatusOnly = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "UPDATE messages SET status = ? WHERE id = ?";
+        return _query;
       }
     };
     this.__preparedStmtOfUpdateMessageStatus = new SharedSQLiteStatement(__db) {
@@ -120,6 +130,34 @@ public final class MessageDao_Impl implements MessageDao {
           return Unit.INSTANCE;
         } finally {
           __db.endTransaction();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object updateStatusOnly(final String id, final String status,
+      final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdateStatusOnly.acquire();
+        int _argIndex = 1;
+        _stmt.bindString(_argIndex, status);
+        _argIndex = 2;
+        _stmt.bindString(_argIndex, id);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfUpdateStatusOnly.release(_stmt);
         }
       }
     }, $completion);

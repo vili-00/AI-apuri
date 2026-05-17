@@ -24,6 +24,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getMessageById(id: String): MessageEntity?
 
+    @Query("UPDATE messages SET status = :status WHERE id = :id")
+    suspend fun updateStatusOnly(id: String, status: String)
+
     @Query("UPDATE messages SET status = :status, content = :content, created_at = :updatedAt WHERE id = :id")
     suspend fun updateMessageStatus(id: String, status: String, content: String = "", updatedAt: Long = 0)
 

@@ -56,7 +56,8 @@ object ServerUrlValidator {
     }
 
     /**
-     * Normalize a URL string: ensure scheme, strip trailing slashes.
+     * Normalize a URL string: ensure scheme, strip trailing slashes,
+     * and strip any trailing /v1 path segment (the app appends it itself).
      */
     fun normalize(rawUrl: String): String {
         var url = rawUrl.trim()
@@ -70,6 +71,11 @@ object ServerUrlValidator {
         // Strip trailing slashes
         while (url.length > 8 && url.endsWith("/")) {
             url = url.removeSuffix("/")
+        }
+
+        // Strip trailing /v1 so the app can safely append /v1/... endpoints
+        if (url.endsWith("/v1", ignoreCase = true)) {
+            url = url.removeSuffix("/v1")
         }
 
         return url

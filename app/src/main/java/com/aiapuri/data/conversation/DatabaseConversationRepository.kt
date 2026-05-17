@@ -104,7 +104,7 @@ class DatabaseConversationRepository(
     }
 
     override suspend fun updateMessageStatus(id: String, status: MessageStatus) {
-        messageDao.updateMessageStatus(id, status.name, updatedAt = 0)
+        messageDao.updateStatusOnly(id, status.name)
     }
 
     override suspend fun updateMessageContentAndStatus(
