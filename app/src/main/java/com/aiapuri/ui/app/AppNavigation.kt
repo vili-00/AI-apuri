@@ -51,7 +51,7 @@ fun AppNavigation(
         composable(Routes.CONVERSATIONS) {
             ConversationListScreen(
                 onNavigateToChat = { conversationId ->
-                    navController.navigate("${Routes.CHAT}/$conversationId")
+                    navController.navigate("${Routes.CHAT_ROUTE}/$conversationId")
                 },
                 onNavigateToSettings = {
                     navController.navigate(Routes.SETTINGS)
@@ -70,9 +70,9 @@ fun AppNavigation(
                 }
             )
         ) { backStackEntry ->
-            val conversationId = backStackEntry.arguments?.getString(Routes.CHAT_ARGS_CONVERSATION_ID) ?: ""
+            val conversationId = backStackEntry.arguments?.getString(Routes.CHAT_ARGS_CONVERSATION_ID)
             ChatScreen(
-                conversationId = conversationId,
+                conversationId = conversationId ?: "",
                 onNavigateBack = {
                     navController.popBackStack()
                 },
