@@ -21,14 +21,14 @@ import androidx.compose.ui.unit.dp
 import com.aiapuri.AiapuriApplication
 import com.aiapuri.core.model.Message
 import com.aiapuri.core.model.MessageRole
-import com.aiapuri.domain.chat.ChatCompletionUseCase
+import com.aiapuri.domain.chat.StreamingChatUseCase
 import kotlinx.coroutines.launch
 
 /**
  * Chat screen for a single conversation.
  *
  * Displays messages, handles sending user messages, persists locally,
- * and calls llama.cpp for assistant responses (non-streaming).
+ * and calls llama.cpp for streaming assistant responses.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +67,21 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    // Streaming indicator in top bar
+                    if (state.isStreaming) {
+                        Icon(
+                            Icons.Default.Circle,
+                            contentDescription = "Streaming",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Streaming…",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -92,7 +107,7 @@ fun ChatScreen(
             }
 
             // Message list or empty state
-            if (state.messages.isEmpty() && !state.isSending) {
+            if (state.messages.isEmpty() && !state.isSending && !state.isStreaming) {
                 ChatEmptyState(
                     modifier = Modifier.weight(1f)
                 )
@@ -104,11 +119,15 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(state.messages, key = { it.id }) { message ->
-                        MessageBubble(message = message)
+                        val isStreamingMessage = state.streamingMessageId == message.id
+                        MessageBubble(
+                            message = message,
+                            isStreaming = isStreamingMessage
+                        )
                     }
 
-                    // Loading indicator while waiting for assistant response
-                    if (state.isSending) {
+                    // Loading indicator while waiting for assistant response to start
+                    if (state.isSending && !state.isStreaming) {
                         item {
                             AssistantLoadingIndicator()
                         }
@@ -116,13 +135,19 @@ fun ChatScreen(
                 }
             }
 
-            // Message composer
-            MessageComposer(
-                text = state.composerText,
-                onTextChanged = viewModel::onComposerTextChanged,
-                onSend = viewModel::sendMessage,
-                enabled = !state.isSending
-            )
+            // Message composer (or stop button during streaming)
+            if (state.isStreaming) {
+                StreamingStopButton(
+                    onStop = viewModel::stopStreaming
+                )
+            } else {
+                MessageComposer(
+                    text = state.composerText,
+                    onTextChanged = viewModel::onComposerTextChanged,
+                    onSend = viewModel::sendMessage,
+                    enabled = !state.isSending && !state.isStreaming
+                )
+            }
         }
     }
 }
@@ -278,6 +303,7 @@ private fun LoadingDots() {
 @Composable
 private fun MessageBubble(
     message: Message,
+    isStreaming: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isUser = message.role == MessageRole.USER
@@ -322,14 +348,69 @@ private fun MessageBubble(
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = message.content,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+
+                    // Message content
+                    if (message.content.isNotBlank()) {
+                        Text(
+                            text = message.content,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Streaming indicator on the active streaming message
+                    if (isStreaming && message.content.isBlank()) {
+                        Row(
+                            modifier = Modifier.padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(12.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Thinking…",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Small pulsing dot next to streaming content
+                    if (isStreaming) {
+                        StreamingCursorIndicator()
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * Blinking cursor indicator shown during streaming.
+ */
+@Composable
+private fun StreamingCursorIndicator() {
+    var visible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(530)
+            visible = !visible
+        }
+    }
+
+    if (visible) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .padding(top = 4.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(4.dp)
+                )
+        ) {}
     }
 }
 
@@ -386,6 +467,36 @@ private fun MessageComposer(
 }
 
 /**
+ * Stop button shown during streaming. Replaces the message composer.
+ */
+@Composable
+private fun StreamingStopButton(
+    onStop: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        FilledTonalButton(
+            onClick = onStop,
+            modifier = Modifier.width(160.dp),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Icon(
+                Icons.Default.Stop,
+                contentDescription = "Stop generation",
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Stop")
+        }
+    }
+}
+
+/**
  * Create or retrieve the chat ViewModel.
  */
 @Composable
@@ -393,8 +504,8 @@ fun rememberChatViewModel(
     application: AiapuriApplication,
     conversationId: String
 ): ChatViewModel {
-    val chatCompletionUseCase = remember {
-        ChatCompletionUseCase(
+    val streamingChatUseCase = remember {
+        StreamingChatUseCase(
             conversationRepository = application.conversationRepository,
             personaRepository = application.personaRepository
         )
@@ -403,7 +514,7 @@ fun rememberChatViewModel(
         ChatViewModel(
             conversationRepository = application.conversationRepository,
             settingsRepository = application.settingsRepository,
-            chatCompletionUseCase = chatCompletionUseCase,
+            streamingChatUseCase = streamingChatUseCase,
             conversationId = conversationId
         )
     }

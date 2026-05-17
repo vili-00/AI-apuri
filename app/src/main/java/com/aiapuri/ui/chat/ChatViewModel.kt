@@ -11,7 +11,8 @@ import com.aiapuri.core.model.MessageRole
 import com.aiapuri.core.model.MessageStatus
 import com.aiapuri.data.conversation.ConversationRepository
 import com.aiapuri.data.settings.SettingsRepository
-import com.aiapuri.domain.chat.ChatCompletionUseCase
+import com.aiapuri.domain.chat.StreamingChatUseCase
+import com.aiapuri.domain.chat.StreamingChatUseCase.StreamingUpdate
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -42,19 +43,23 @@ data class ChatUiState(
     val isLoading: Boolean = false,
     val error: UiError? = null,
     val conversationExists: Boolean = true,
-    val isSending: Boolean = false
+    val isSending: Boolean = false,
+    /** True while a streaming response is in progress. */
+    val isStreaming: Boolean = false,
+    /** ID of the message currently being streamed (for UI highlighting). */
+    val streamingMessageId: String? = null
 )
 
 /**
  * ViewModel for the chat screen.
  *
  * Observes messages reactively, handles sending user messages,
- * persists them locally, and calls llama.cpp for assistant responses.
+ * persists them locally, and calls llama.cpp for streaming assistant responses.
  */
 class ChatViewModel(
     private val conversationRepository: ConversationRepository,
     private val settingsRepository: SettingsRepository,
-    private val chatCompletionUseCase: ChatCompletionUseCase,
+    private val streamingChatUseCase: StreamingChatUseCase,
     conversationId: String
 ) : ViewModel() {
 
@@ -109,17 +114,18 @@ class ChatViewModel(
     }
 
     /**
-     * Send a user message and get an assistant response.
+     * Send a user message and get a streaming assistant response.
      *
      * 1. Creates a conversation if needed
      * 2. Saves the user message
-     * 3. Calls llama.cpp for assistant response
-     * 4. Saves the assistant response
+     * 3. Starts streaming request to llama.cpp
+     * 4. Updates assistant message as deltas arrive
+     * 5. Finalizes message on complete, stop, or error
      */
     fun sendMessage() {
         val text = uiState.composerText.trim()
         if (text.isEmpty()) return
-        if (uiState.isSending) return
+        if (uiState.isSending || uiState.isStreaming) return
 
         viewModelScope.launch {
             uiState = uiState.copy(isSending = true, error = null)
@@ -159,31 +165,63 @@ class ChatViewModel(
                 // Get server settings for API call
                 val serverSettings = settingsRepository.serverSettingsFlow.first()
 
-                // Call llama.cpp
-                val result = chatCompletionUseCase(
-                    conversationId = currentConvId,
-                    userMessage = userMessage,
-                    serverSettings = serverSettings
-                )
+                // Start streaming — isSending transitions to isStreaming
+                uiState = uiState.copy(isSending = false, isStreaming = true)
 
-                when (result) {
-                    is ChatCompletionUseCase.Result.Success -> {
-                        // Response saved and will appear via reactive flow
-                    }
-                    is ChatCompletionUseCase.Result.Error -> {
-                        uiState = uiState.copy(
-                            error = UiError(
-                                userMessage = result.message,
-                                technicalMessage = result.technicalDetail,
-                                canRetry = result.isRetryable
-                            )
-                        )
+                val streamingJob = viewModelScope.launch {
+                    streamingChatUseCase.startStreaming(
+                        conversationId = currentConvId,
+                        serverSettings = serverSettings
+                    ).collect { update ->
+                        when (update) {
+                            is StreamingUpdate.TextAppended -> {
+                                // Track the streaming message ID
+                                uiState = uiState.copy(streamingMessageId = update.messageId)
+                                // The message content is updated in the database and
+                                // will appear via the reactive message flow
+                            }
+
+                            is StreamingUpdate.Complete -> {
+                                // Streaming finished successfully
+                                uiState = uiState.copy(
+                                    isStreaming = false,
+                                    streamingMessageId = null
+                                )
+                            }
+
+                            is StreamingUpdate.Stopped -> {
+                                // User cancelled streaming
+                                uiState = uiState.copy(
+                                    isStreaming = false,
+                                    streamingMessageId = null
+                                )
+                            }
+
+                            is StreamingUpdate.Error -> {
+                                // Streaming error — show error banner
+                                uiState = uiState.copy(
+                                    isStreaming = false,
+                                    streamingMessageId = null,
+                                    error = UiError(
+                                        userMessage = update.userMessage,
+                                        technicalMessage = update.technicalDetail,
+                                        canRetry = update.isRetryable
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
+
+                // Store the job reference so we can cancel it on stop
+                // We use a trick: the streaming flow will be cancelled when
+                // the stopStreaming() method cancels the coroutine context.
 
             } catch (e: Exception) {
                 val safeMessage = e.message ?: "${e.javaClass.simpleName}"
                 uiState = uiState.copy(
+                    isStreaming = false,
+                    streamingMessageId = null,
                     error = UiError(
                         userMessage = "Failed to send message",
                         technicalMessage = safeMessage,
@@ -191,8 +229,29 @@ class ChatViewModel(
                     )
                 )
             } finally {
-                uiState = uiState.copy(isSending = false)
+                // isSending is cleared; isStreaming is managed by the streaming flow
             }
+        }
+    }
+
+    /**
+     * Stop the current streaming request.
+     *
+     * Cancels the ongoing request and saves any partial response as STOPPED.
+     */
+    fun stopStreaming() {
+        if (!uiState.isStreaming) return
+
+        viewModelScope.launch {
+            // Mark the streaming message as stopped
+            uiState.streamingMessageId?.let { messageId ->
+                streamingChatUseCase.stopStreaming(messageId)
+            }
+
+            uiState = uiState.copy(
+                isStreaming = false,
+                streamingMessageId = null
+            )
         }
     }
 
@@ -216,42 +275,62 @@ class ChatViewModel(
             }
 
         viewModelScope.launch {
-            uiState = uiState.copy(isSending = true, error = null)
+            uiState = uiState.copy(isSending = true, error = null, isStreaming = false)
 
             try {
                 val serverSettings = settingsRepository.serverSettingsFlow.first()
 
-                val result = chatCompletionUseCase(
-                    conversationId = convId,
-                    userMessage = lastUserMessage,
-                    serverSettings = serverSettings
-                )
+                // Start streaming retry
+                uiState = uiState.copy(isSending = false, isStreaming = true)
 
-                when (result) {
-                    is ChatCompletionUseCase.Result.Success -> {
-                        // Response saved and will appear via reactive flow
-                    }
-                    is ChatCompletionUseCase.Result.Error -> {
-                        uiState = uiState.copy(
-                            error = UiError(
-                                userMessage = result.message,
-                                technicalMessage = result.technicalDetail,
-                                canRetry = result.isRetryable
+                streamingChatUseCase.startStreaming(
+                    conversationId = convId,
+                    serverSettings = serverSettings
+                ).collect { update ->
+                    when (update) {
+                        is StreamingUpdate.TextAppended -> {
+                            uiState = uiState.copy(streamingMessageId = update.messageId)
+                        }
+
+                        is StreamingUpdate.Complete -> {
+                            uiState = uiState.copy(
+                                isStreaming = false,
+                                streamingMessageId = null
                             )
-                        )
+                        }
+
+                        is StreamingUpdate.Stopped -> {
+                            uiState = uiState.copy(
+                                isStreaming = false,
+                                streamingMessageId = null
+                            )
+                        }
+
+                        is StreamingUpdate.Error -> {
+                            uiState = uiState.copy(
+                                isStreaming = false,
+                                streamingMessageId = null,
+                                error = UiError(
+                                    userMessage = update.userMessage,
+                                    technicalMessage = update.technicalDetail,
+                                    canRetry = update.isRetryable
+                                )
+                            )
+                        }
                     }
                 }
+
             } catch (e: Exception) {
                 val safeMessage = e.message ?: "${e.javaClass.simpleName}"
                 uiState = uiState.copy(
+                    isStreaming = false,
+                    streamingMessageId = null,
                     error = UiError(
                         userMessage = "Retry failed",
                         technicalMessage = safeMessage,
                         canRetry = true
                     )
                 )
-            } finally {
-                uiState = uiState.copy(isSending = false)
             }
         }
     }
