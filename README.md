@@ -322,18 +322,12 @@ The project includes unit tests covering:
 
 ---
 
-## License
-
-Private project. All rights reserved.
-
----
 
 ## Future Plans (Not in Version 1)
 
 Version 2 may include:
 
 - Web search (with explicit user approval)
-- Self-hosted SearXNG or Brave Search integration
 - File attachments and PDF ingestion
 - Additional tool support
 
