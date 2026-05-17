@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.aiapuri.core.util.ServerUrlValidatorTest" tests="24" skipped="0" failures="0" errors="0" timestamp="2026-05-17T12:03:50" hostname="pi-sandbox" time="0.022">
+<testsuite name="com.aiapuri.core.util.ServerUrlValidatorTest" tests="24" skipped="0" failures="0" errors="0" timestamp="2026-05-17T12:12:46" hostname="pi-sandbox" time="0.019">
   <properties/>
-  <testcase name="validate strips trailing slashes" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.01"/>
+  <testcase name="validate strips trailing slashes" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.009"/>
   <testcase name="validate accepts Tailscale-style IP" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
-  <testcase name="validate accepts valid https URL" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.003"/>
-  <testcase name="endpoints do not double-slash when base has no trailing slash" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.001"/>
-  <testcase name="normalize does not modify URL without trailing slash" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.001"/>
-  <testcase name="validate accepts URL without explicit port" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
+  <testcase name="validate accepts valid https URL" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.001"/>
+  <testcase name="endpoints do not double-slash when base has no trailing slash" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
+  <testcase name="normalize does not modify URL without trailing slash" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
+  <testcase name="validate accepts URL without explicit port" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.001"/>
   <testcase name="normalize strips single trailing slash" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
-  <testcase name="healthEndpoint appends health path" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.001"/>
+  <testcase name="healthEndpoint appends health path" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
   <testcase name="validate trims whitespace" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
-  <testcase name="validate rejects whitespace-only string" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
+  <testcase name="validate rejects whitespace-only string" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.001"/>
   <testcase name="normalize preserves https scheme" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
-  <testcase name="endpoints work with https base URL" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.001"/>
+  <testcase name="endpoints work with https base URL" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
   <testcase name="normalize trims leading and trailing whitespace" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
   <testcase name="normalize adds http scheme when missing" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
   <testcase name="validate rejects ftp scheme" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.001"/>
@@ -24,7 +24,7 @@
   <testcase name="validate accepts localhost" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
   <testcase name="validate rejects file scheme" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
   <testcase name="validate rejects empty string" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
-  <testcase name="chatCompletionsEndpoint appends v1 chat completions path" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.0"/>
+  <testcase name="chatCompletionsEndpoint appends v1 chat completions path" classname="com.aiapuri.core.util.ServerUrlValidatorTest" time="0.003"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
