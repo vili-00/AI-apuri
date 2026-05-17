@@ -514,7 +514,8 @@ fun rememberConversationListViewModel(application: AiapuriApplication): Conversa
     return remember {
         ConversationListViewModel(
             conversationRepository = application.conversationRepository,
-            personaRepository = application.personaRepository
+            personaRepository = application.personaRepository,
+            settingsRepository = application.settingsRepository
         )
     }
 }

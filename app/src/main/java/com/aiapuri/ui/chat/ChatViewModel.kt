@@ -9,7 +9,9 @@ import com.aiapuri.core.model.Conversation
 import com.aiapuri.core.model.Message
 import com.aiapuri.core.model.MessageRole
 import com.aiapuri.core.model.MessageStatus
+import com.aiapuri.core.model.ModelInfo
 import com.aiapuri.data.conversation.ConversationRepository
+import com.aiapuri.data.llama.OkHttpLlamaApiClient
 import com.aiapuri.data.settings.SettingsRepository
 import com.aiapuri.domain.chat.StreamingChatUseCase
 import com.aiapuri.domain.chat.StreamingChatUseCase.StreamingUpdate
@@ -47,7 +49,13 @@ data class ChatUiState(
     /** True while a streaming response is in progress. */
     val isStreaming: Boolean = false,
     /** ID of the message currently being streamed (for UI highlighting). */
-    val streamingMessageId: String? = null
+    val streamingMessageId: String? = null,
+    /** Currently selected model for this conversation. */
+    val currentModel: String = "",
+    /** Available models fetched from the server. */
+    val availableModels: List<ModelInfo> = emptyList(),
+    /** True while fetching the model list. */
+    val isFetchingModels: Boolean = false
 )
 
 /**
@@ -55,6 +63,7 @@ data class ChatUiState(
  *
  * Observes messages reactively, handles sending user messages,
  * persists them locally, and calls llama.cpp for streaming assistant responses.
+ * Supports model switching per conversation.
  */
 class ChatViewModel(
     private val conversationRepository: ConversationRepository,
@@ -83,12 +92,18 @@ class ChatViewModel(
             if (conv != null) {
                 uiState = uiState.copy(
                     conversationTitle = conv.title,
-                    conversationExists = true
+                    conversationExists = true,
+                    currentModel = conv.model.takeIf { it.isNotBlank() } ?: ""
                 )
             } else {
                 // Check if this is a "new" conversation request
                 if (convId == "new" || convId.isEmpty()) {
                     uiState = uiState.copy(conversationExists = false)
+                    // Pre-load default model for new conversations
+                    val defaultModel = settingsRepository.serverSettingsFlow.first().defaultModel
+                    if (!defaultModel.isNullOrBlank()) {
+                        uiState = uiState.copy(currentModel = defaultModel)
+                    }
                 } else {
                     uiState = uiState.copy(
                         conversationExists = false,
@@ -111,6 +126,58 @@ class ChatViewModel(
     /** Update composer text. */
     fun onComposerTextChanged(text: String) {
         uiState = uiState.copy(composerText = text)
+    }
+
+    // ==================== Model Switching ====================
+
+    /**
+     * Fetch the list of available models from the server.
+     */
+    fun fetchModels() {
+        viewModelScope.launch {
+            uiState = uiState.copy(isFetchingModels = true)
+            try {
+                val serverSettings = settingsRepository.serverSettingsFlow.first()
+                if (serverSettings.baseUrl.isBlank()) {
+                    // No server configured yet
+                    uiState = uiState.copy(isFetchingModels = false)
+                    return@launch
+                }
+                val client = OkHttpLlamaApiClient(
+                    baseUrl = serverSettings.baseUrl,
+                    apiKey = serverSettings.apiKey
+                )
+                val models = client.listModels()
+                uiState = uiState.copy(
+                    availableModels = models,
+                    isFetchingModels = false
+                )
+            } catch (e: Exception) {
+                // Silently fail — user can still type a model name manually
+                uiState = uiState.copy(isFetchingModels = false)
+            }
+        }
+    }
+
+    /**
+     * Switch the model for the current conversation.
+     *
+     * If the conversation exists, updates its stored model.
+     * If this is a new conversation, just updates the UI state
+     * (the model will be saved when the conversation is created).
+     */
+    fun switchModel(modelId: String) {
+        uiState = uiState.copy(currentModel = modelId)
+        // If the conversation already exists, persist the model change
+        if (uiState.conversationExists && convId.isNotEmpty() && convId != "new") {
+            viewModelScope.launch {
+                try {
+                    conversationRepository.updateConversationModel(convId, modelId)
+                } catch (e: Exception) {
+                    // Silently fail — model will be used for next request regardless
+                }
+            }
+        }
     }
 
     /**
@@ -136,16 +203,25 @@ class ChatViewModel(
                 // Create conversation if needed
                 if (!uiState.conversationExists || currentConvId == "new" || currentConvId.isEmpty()) {
                     val serverSettings = settingsRepository.serverSettingsFlow.first()
-                    val defaultModel = serverSettings.defaultModel ?: "default"
+                    val model = uiState.currentModel
+                        .takeIf { it.isNotBlank() }
+                        ?: serverSettings.defaultModel
+                        ?: "default"
+
                     val newConv = Conversation(
                         id = UUID.randomUUID().toString(),
                         title = text.take(50) + if (text.length > 50) "…" else "",
                         createdAt = Instant.now(),
                         updatedAt = Instant.now(),
-                        model = defaultModel
+                        model = model
                     )
                     conversationRepository.createConversation(newConv)
                     currentConvId = newConv.id
+                    // Update UI state with the new conversation's model
+                    uiState = uiState.copy(
+                        conversationExists = true,
+                        currentModel = model
+                    )
                 }
 
                 // Save user message

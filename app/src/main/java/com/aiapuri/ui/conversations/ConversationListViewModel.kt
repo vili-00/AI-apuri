@@ -7,11 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiapuri.core.model.Conversation
 import com.aiapuri.core.model.ConversationSummary
-import com.aiapuri.core.model.MessageRole
-import com.aiapuri.core.model.MessageStatus
 import com.aiapuri.data.conversation.ConversationRepository
 import com.aiapuri.data.persona.PersonaRepository
+import com.aiapuri.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -40,7 +40,8 @@ data class ConversationListUiState(
  */
 class ConversationListViewModel(
     private val conversationRepository: ConversationRepository,
-    private val personaRepository: PersonaRepository
+    private val personaRepository: PersonaRepository,
+    private val settingsRepository: SettingsRepository? = null
 ) : ViewModel() {
 
     var uiState by mutableStateOf(ConversationListUiState())
@@ -81,12 +82,17 @@ class ConversationListViewModel(
         uiState = uiState.copy(searchQuery = query)
     }
 
-    /** Create a new conversation. */
+    /**
+     * Create a new conversation using the default model from settings.
+     */
     fun createConversation() {
         viewModelScope.launch {
             try {
-                // Get default model from settings or use a fallback
-                val defaultModel = "default"
+                // Get default model from settings
+                val defaultModel = settingsRepository?.let { repo ->
+                    repo.serverSettingsFlow.first().defaultModel
+                }?.takeIf { it.isNotBlank() } ?: "default"
+
                 val newConv = Conversation(
                     id = UUID.randomUUID().toString(),
                     title = "New Chat",
@@ -95,7 +101,6 @@ class ConversationListViewModel(
                     model = defaultModel
                 )
                 conversationRepository.createConversation(newConv)
-                // Immediately navigate (handled by caller via conversation list update)
             } catch (e: Exception) {
                 uiState = uiState.copy(errorMessage = "Failed to create conversation: ${e.message}")
             }

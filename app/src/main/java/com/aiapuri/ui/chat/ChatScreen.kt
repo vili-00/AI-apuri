@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.aiapuri.AiapuriApplication
 import com.aiapuri.core.model.Message
 import com.aiapuri.core.model.MessageRole
+import com.aiapuri.core.model.ModelInfo
 import com.aiapuri.domain.chat.StreamingChatUseCase
 import kotlinx.coroutines.launch
 
@@ -42,6 +43,11 @@ fun ChatScreen(
     val viewModel = rememberChatViewModel(application, conversationId)
     val state = viewModel.uiState
     val scope = rememberCoroutineScope()
+
+    // Fetch available models on first compose
+    LaunchedEffect(Unit) {
+        viewModel.fetchModels()
+    }
 
     val listState = rememberLazyListState()
 
@@ -67,6 +73,15 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    // Model selector dropdown
+                    ChatModelSelector(
+                        currentModel = state.currentModel,
+                        availableModels = state.availableModels,
+                        isFetchingModels = state.isFetchingModels,
+                        onModelSelected = viewModel::switchModel,
+                        onRefreshModels = viewModel::fetchModels
+                    )
+
                     // Streaming indicator in top bar
                     if (state.isStreaming) {
                         Icon(
@@ -74,12 +89,6 @@ fun ChatScreen(
                             contentDescription = "Streaming",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Streaming…",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                     IconButton(onClick = onNavigateToSettings) {
@@ -492,6 +501,134 @@ private fun StreamingStopButton(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text("Stop")
+        }
+    }
+}
+
+/**
+ * Model selector shown in the chat top bar.
+ *
+ * Allows the user to switch the model for the current conversation.
+ * Shows a dropdown with fetched models and allows manual entry.
+ */
+@Composable
+private fun ChatModelSelector(
+    currentModel: String,
+    availableModels: List<ModelInfo>,
+    isFetchingModels: Boolean,
+    onModelSelected: (String) -> Unit,
+    onRefreshModels: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var manualText by remember { mutableStateOf(currentModel) }
+
+    // Sync manual text when currentModel changes externally
+    LaunchedEffect(currentModel) {
+        manualText = currentModel
+    }
+
+    Box(modifier = modifier) {
+        // Button to open the dropdown
+        TextButton(
+            onClick = { expanded = true },
+            enabled = !isFetchingModels
+        ) {
+            if (isFetchingModels) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    Icons.Default.Memory,
+                    contentDescription = "Select model",
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (currentModel.isNotBlank()) currentModel else "Model",
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1
+                )
+            }
+        }
+
+        // Dropdown menu
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            // Manual entry field
+            Box(modifier = Modifier.padding(8.dp)) {
+                OutlinedTextField(
+                    value = manualText,
+                    onValueChange = {
+                        manualText = it
+                        onModelSelected(it)
+                    },
+                    placeholder = { Text("Model name") },
+                    modifier = Modifier.width(240.dp),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            // Divider
+            androidx.compose.material3.HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+
+            // Refresh button
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text("Refresh models")
+                    }
+                },
+                onClick = {
+                    onRefreshModels()
+                    expanded = false
+                }
+            )
+
+            // Available models list
+            if (availableModels.isNotEmpty()) {
+                androidx.compose.material3.HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+
+                availableModels.forEach { model ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = model.displayName,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = model.id,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            onModelSelected(model.id)
+                            manualText = model.id
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
