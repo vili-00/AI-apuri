@@ -4,34 +4,31 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aiapuri.AiapuriApplication
 import com.aiapuri.core.model.Message
 import com.aiapuri.core.model.MessageRole
+import com.aiapuri.domain.chat.ChatCompletionUseCase
 import kotlinx.coroutines.launch
 
 /**
  * Chat screen for a single conversation.
  *
- * Displays messages, handles sending user messages, persists locally.
- * No llama.cpp integration yet (Task 11+).
+ * Displays messages, handles sending user messages, persists locally,
+ * and calls llama.cpp for assistant responses (non-streaming).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,7 +49,9 @@ fun ChatScreen(
     LaunchedEffect(state.messages.size) {
         if (state.messages.isNotEmpty()) {
             scope.launch {
-                listState.animateScrollToItem(minOf(state.messages.size, listState.layoutInfo.totalItemsCount - 1))
+                listState.animateScrollToItem(
+                    minOf(state.messages.size, listState.layoutInfo.totalItemsCount - 1)
+                )
             }
         }
     }
@@ -80,16 +79,17 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Error banner
+            // Error banner with retry
             AnimatedVisibility(visible = state.errorMessage != null) {
                 ChatErrorBanner(
                     message = state.errorMessage!!,
-                    onDismiss = { viewModel.dismissError() }
+                    onDismiss = { viewModel.dismissError() },
+                    onRetry = { viewModel.retryLastMessage() }
                 )
             }
 
             // Message list or empty state
-            if (state.messages.isEmpty()) {
+            if (state.messages.isEmpty() && !state.isSending) {
                 ChatEmptyState(
                     modifier = Modifier.weight(1f)
                 )
@@ -103,6 +103,13 @@ fun ChatScreen(
                     items(state.messages, key = { it.id }) { message ->
                         MessageBubble(message = message)
                     }
+
+                    // Loading indicator while waiting for assistant response
+                    if (state.isSending) {
+                        item {
+                            AssistantLoadingIndicator()
+                        }
+                    }
                 }
             }
 
@@ -111,7 +118,7 @@ fun ChatScreen(
                 text = state.composerText,
                 onTextChanged = viewModel::onComposerTextChanged,
                 onSend = viewModel::sendMessage,
-                enabled = !state.isLoading
+                enabled = !state.isSending
             )
         }
     }
@@ -153,12 +160,13 @@ private fun ChatEmptyState(modifier: Modifier = Modifier) {
 }
 
 /**
- * Error banner for chat errors.
+ * Error banner for chat errors with optional retry.
  */
 @Composable
 private fun ChatErrorBanner(
     message: String,
     onDismiss: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -185,9 +193,67 @@ private fun ChatErrorBanner(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
+            TextButton(onClick = onRetry) {
+                Icon(Icons.Default.Replay, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Retry")
+            }
             TextButton(onClick = onDismiss) {
                 Text("Dismiss")
             }
+        }
+    }
+}
+
+/**
+ * Loading indicator shown while waiting for assistant response.
+ */
+@Composable
+private fun AssistantLoadingIndicator(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Animated dots
+                LoadingDots()
+            }
+        }
+    }
+}
+
+/**
+ * Animated loading dots.
+ */
+@Composable
+private fun LoadingDots() {
+    var dotCount by remember { mutableStateOf(1) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(400)
+            dotCount = (dotCount % 3) + 1
+        }
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(3) { index ->
+            CircularProgressIndicator(
+                modifier = Modifier.size(8.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                    alpha = if (index < dotCount) 1f else 0.3f
+                )
+            )
         }
     }
 }
@@ -313,10 +379,17 @@ fun rememberChatViewModel(
     application: AiapuriApplication,
     conversationId: String
 ): ChatViewModel {
+    val chatCompletionUseCase = remember {
+        ChatCompletionUseCase(
+            conversationRepository = application.conversationRepository,
+            personaRepository = application.personaRepository
+        )
+    }
     return remember(conversationId) {
         ChatViewModel(
             conversationRepository = application.conversationRepository,
             settingsRepository = application.settingsRepository,
+            chatCompletionUseCase = chatCompletionUseCase,
             conversationId = conversationId
         )
     }

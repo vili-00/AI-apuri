@@ -11,6 +11,7 @@ import com.aiapuri.core.model.MessageRole
 import com.aiapuri.core.model.MessageStatus
 import com.aiapuri.data.conversation.ConversationRepository
 import com.aiapuri.data.settings.SettingsRepository
+import com.aiapuri.domain.chat.ChatCompletionUseCase
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -27,20 +28,20 @@ data class ChatUiState(
     val composerText: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val conversationExists: Boolean = true
+    val conversationExists: Boolean = true,
+    val isSending: Boolean = false
 )
 
 /**
  * ViewModel for the chat screen.
  *
  * Observes messages reactively, handles sending user messages,
- * and persists them via ConversationRepository.
- *
- * Task 10 scope: local persistence only — no llama.cpp calls yet.
+ * persists them locally, and calls llama.cpp for assistant responses.
  */
 class ChatViewModel(
     private val conversationRepository: ConversationRepository,
     private val settingsRepository: SettingsRepository,
+    private val chatCompletionUseCase: ChatCompletionUseCase,
     conversationId: String
 ) : ViewModel() {
 
@@ -91,23 +92,28 @@ class ChatViewModel(
     }
 
     /**
-     * Send a user message.
+     * Send a user message and get an assistant response.
      *
-     * If no conversation exists yet, creates one first.
-     * Saves the message to the encrypted database.
+     * 1. Creates a conversation if needed
+     * 2. Saves the user message
+     * 3. Calls llama.cpp for assistant response
+     * 4. Saves the assistant response
      */
     fun sendMessage() {
         val text = uiState.composerText.trim()
         if (text.isEmpty()) return
+        if (uiState.isSending) return
 
         viewModelScope.launch {
+            uiState = uiState.copy(isSending = true, errorMessage = null)
+
             try {
                 var currentConvId = convId
 
                 // Create conversation if needed
                 if (!uiState.conversationExists || currentConvId == "new" || currentConvId.isEmpty()) {
-                    val defaultModel = settingsRepository.serverSettingsFlow.first().defaultModel
-                        ?: "default"
+                    val serverSettings = settingsRepository.serverSettingsFlow.first()
+                    val defaultModel = serverSettings.defaultModel ?: "default"
                     val newConv = Conversation(
                         id = UUID.randomUUID().toString(),
                         title = text.take(50) + if (text.length > 50) "…" else "",
@@ -133,12 +139,65 @@ class ChatViewModel(
                 // Clear composer
                 uiState = uiState.copy(composerText = "")
 
-                // Update our internal convId for subsequent messages
-                // Note: we can't change convId itself (val), but the messages
-                // will flow through the repository observation for the original convId
-                // If we created a new conversation, the navigation should handle redirect
+                // Get server settings for API call
+                val serverSettings = settingsRepository.serverSettingsFlow.first()
+
+                // Call llama.cpp
+                val result = chatCompletionUseCase(
+                    conversationId = currentConvId,
+                    userMessage = userMessage,
+                    serverSettings = serverSettings
+                )
+
+                when (result) {
+                    is ChatCompletionUseCase.Result.Success -> {
+                        // Response saved and will appear via reactive flow
+                    }
+                    is ChatCompletionUseCase.Result.Error -> {
+                        uiState = uiState.copy(errorMessage = result.message)
+                    }
+                }
+
             } catch (e: Exception) {
                 uiState = uiState.copy(errorMessage = "Failed to send message: ${e.message}")
+            } finally {
+                uiState = uiState.copy(isSending = false)
+            }
+        }
+    }
+
+    /**
+     * Retry the last failed request by re-sending the last user message.
+     */
+    fun retryLastMessage() {
+        val messages = uiState.messages
+        val lastUserMessage = messages.lastOrNull { it.role == MessageRole.USER }
+            ?: return
+
+        viewModelScope.launch {
+            uiState = uiState.copy(isSending = true, errorMessage = null)
+
+            try {
+                val serverSettings = settingsRepository.serverSettingsFlow.first()
+
+                val result = chatCompletionUseCase(
+                    conversationId = convId,
+                    userMessage = lastUserMessage,
+                    serverSettings = serverSettings
+                )
+
+                when (result) {
+                    is ChatCompletionUseCase.Result.Success -> {
+                        // Response saved and will appear via reactive flow
+                    }
+                    is ChatCompletionUseCase.Result.Error -> {
+                        uiState = uiState.copy(errorMessage = result.message)
+                    }
+                }
+            } catch (e: Exception) {
+                uiState = uiState.copy(errorMessage = "Retry failed: ${e.message}")
+            } finally {
+                uiState = uiState.copy(isSending = false)
             }
         }
     }
@@ -148,7 +207,7 @@ class ChatViewModel(
         uiState = uiState.copy(errorMessage = null)
     }
 
-    /** Get the effective conversation ID (may differ from original if new was created). */
+    /** Get the effective conversation ID. */
     fun getConversationId(): String {
         return convId
     }
