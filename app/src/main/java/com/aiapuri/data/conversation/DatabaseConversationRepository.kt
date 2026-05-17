@@ -63,6 +63,16 @@ class DatabaseConversationRepository(
         conversationDao.insertConversation(updated)
     }
 
+    override suspend fun updateTitleIfDefault(id: String, newTitle: String): Boolean {
+        val rowsUpdated = conversationDao.updateTitleIfDefault(
+            id = id,
+            placeholderTitle = com.aiapuri.core.util.TitleGenerator.DEFAULT_TITLE,
+            newTitle = newTitle,
+            updatedAt = Instant.now().epochSecond
+        )
+        return rowsUpdated > 0
+    }
+
     override suspend fun updateConversationModel(id: String, model: String) {
         val existing = conversationDao.getConversationById(id) ?: return
         val updated = existing.copy(model = model, updatedAt = Instant.now().epochSecond)

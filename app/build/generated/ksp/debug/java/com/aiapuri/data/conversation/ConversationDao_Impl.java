@@ -14,6 +14,7 @@ import androidx.room.util.DBUtil;
 import androidx.sqlite.db.SupportSQLiteStatement;
 import java.lang.Class;
 import java.lang.Exception;
+import java.lang.Integer;
 import java.lang.Long;
 import java.lang.Object;
 import java.lang.Override;
@@ -42,6 +43,8 @@ public final class ConversationDao_Impl implements ConversationDao {
   private final SharedSQLiteStatement __preparedStmtOfDeleteConversation;
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteAllConversations;
+
+  private final SharedSQLiteStatement __preparedStmtOfUpdateTitleIfDefault;
 
   public ConversationDao_Impl(@NonNull final RoomDatabase __db) {
     this.__db = __db;
@@ -101,6 +104,14 @@ public final class ConversationDao_Impl implements ConversationDao {
       @NonNull
       public String createQuery() {
         final String _query = "DELETE FROM conversations";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfUpdateTitleIfDefault = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ? AND title = ?";
         return _query;
       }
     };
@@ -230,6 +241,39 @@ public final class ConversationDao_Impl implements ConversationDao {
           }
         } finally {
           __preparedStmtOfDeleteAllConversations.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object updateTitleIfDefault(final String id, final String placeholderTitle,
+      final String newTitle, final long updatedAt,
+      final Continuation<? super Integer> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Integer>() {
+      @Override
+      @NonNull
+      public Integer call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdateTitleIfDefault.acquire();
+        int _argIndex = 1;
+        _stmt.bindString(_argIndex, newTitle);
+        _argIndex = 2;
+        _stmt.bindLong(_argIndex, updatedAt);
+        _argIndex = 3;
+        _stmt.bindString(_argIndex, id);
+        _argIndex = 4;
+        _stmt.bindString(_argIndex, placeholderTitle);
+        try {
+          __db.beginTransaction();
+          try {
+            final Integer _result = _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return _result;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfUpdateTitleIfDefault.release(_stmt);
         }
       }
     }, $completion);

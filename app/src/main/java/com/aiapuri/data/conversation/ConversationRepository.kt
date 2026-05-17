@@ -32,6 +32,14 @@ interface ConversationRepository {
     /** Update the title of a conversation. */
     suspend fun updateConversationTitle(id: String, title: String)
 
+    /**
+     * Update the title of a conversation only if it still has the default placeholder title.
+     * This prevents overwriting a user-provided manual rename.
+     *
+     * @return true if the title was updated, false if it had already been renamed.
+     */
+    suspend fun updateTitleIfDefault(id: String, newTitle: String): Boolean
+
     /** Update the model for a conversation. */
     suspend fun updateConversationModel(id: String, model: String)
 

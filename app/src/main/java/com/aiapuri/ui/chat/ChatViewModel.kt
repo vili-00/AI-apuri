@@ -17,6 +17,7 @@ import com.aiapuri.data.persona.PersonaRepository
 import com.aiapuri.data.settings.SettingsRepository
 import com.aiapuri.domain.chat.StreamingChatUseCase
 import com.aiapuri.domain.chat.StreamingChatUseCase.StreamingUpdate
+import com.aiapuri.core.util.TitleGenerator
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -255,7 +256,7 @@ class ChatViewModel(
 
                     val newConv = Conversation(
                         id = UUID.randomUUID().toString(),
-                        title = text.take(50) + if (text.length > 50) "…" else "",
+                        title = TitleGenerator.generateTitle(text),
                         createdAt = Instant.now(),
                         updatedAt = Instant.now(),
                         model = model,
@@ -266,8 +267,21 @@ class ChatViewModel(
                     // Update UI state with the new conversation's model
                     uiState = uiState.copy(
                         conversationExists = true,
+                        conversationTitle = newConv.title,
                         currentModel = model
                     )
+                } else {
+                    // Conversation already exists — check if this is the first message
+                    // and the title is still the default placeholder. If so, auto-generate.
+                    val appSettings = settingsRepository.appSettingsFlow.first()
+                    if (appSettings.autoGenerateTitles &&
+                        TitleGenerator.isPlaceholderTitle(uiState.conversationTitle)) {
+                        val generatedTitle = TitleGenerator.generateTitle(text)
+                        val updated = conversationRepository.updateTitleIfDefault(currentConvId, generatedTitle)
+                        if (updated) {
+                            uiState = uiState.copy(conversationTitle = generatedTitle)
+                        }
+                    }
                 }
 
                 // Save user message

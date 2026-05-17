@@ -46,6 +46,21 @@ interface ConversationDao {
     suspend fun deleteAllConversations()
 
     /**
+     * Update the title of a conversation only if it still has the default placeholder title.
+     * This prevents overwriting a user-provided manual rename.
+     *
+     * @return true if the title was updated, false if the title had already been changed.
+     */
+    @Query("UPDATE conversations SET title = :newTitle, updated_at = :updatedAt " +
+           "WHERE id = :id AND title = :placeholderTitle")
+    suspend fun updateTitleIfDefault(
+        id: String,
+        placeholderTitle: String,
+        newTitle: String,
+        updatedAt: Long
+    ): Int
+
+    /**
      * Row class for conversation summary queries.
      */
     data class ConversationSummaryRow(

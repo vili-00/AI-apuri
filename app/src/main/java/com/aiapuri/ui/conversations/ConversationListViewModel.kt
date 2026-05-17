@@ -10,6 +10,7 @@ import com.aiapuri.core.model.ConversationSummary
 import com.aiapuri.data.conversation.ConversationRepository
 import com.aiapuri.data.persona.PersonaRepository
 import com.aiapuri.data.settings.SettingsRepository
+import com.aiapuri.core.util.TitleGenerator
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -95,7 +96,7 @@ class ConversationListViewModel(
 
                 val newConv = Conversation(
                     id = UUID.randomUUID().toString(),
-                    title = "New Chat",
+                    title = TitleGenerator.DEFAULT_TITLE,
                     createdAt = Instant.now(),
                     updatedAt = Instant.now(),
                     model = defaultModel

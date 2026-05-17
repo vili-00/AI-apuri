@@ -42,6 +42,7 @@ class DataStoreSettingsRepository(
         private val KEY_DARK_THEME = stringPreferencesKey("dark_theme")  // "true", "false", or absent
         private val KEY_APP_LOCK = booleanPreferencesKey("app_lock_enabled")
         private val KEY_BLOCK_SCREENSHOTS = booleanPreferencesKey("block_screenshots")
+        private val KEY_AUTO_GENERATE_TITLES = booleanPreferencesKey("auto_generate_titles")
 
         // ---- Encrypted prefs key ----
         private const val ENCRYPTED_KEY_API_KEY = "api_key"
@@ -94,12 +95,14 @@ class DataStoreSettingsRepository(
             }
             val appLock = prefs[KEY_APP_LOCK] ?: false
             val blockScreenshots = prefs[KEY_BLOCK_SCREENSHOTS] ?: false
+            val autoGenerateTitles = prefs[KEY_AUTO_GENERATE_TITLES] ?: true
 
             AppSettings(
                 hasCompletedOnboarding = onboardingDone,
                 darkTheme = darkTheme,
                 appLockEnabled = appLock,
-                blockScreenshots = blockScreenshots
+                blockScreenshots = blockScreenshots,
+                autoGenerateTitles = autoGenerateTitles
             )
         }
 
@@ -109,6 +112,7 @@ class DataStoreSettingsRepository(
             prefs[KEY_DARK_THEME] = settings.darkTheme?.toString() ?: ""
             prefs[KEY_APP_LOCK] = settings.appLockEnabled
             prefs[KEY_BLOCK_SCREENSHOTS] = settings.blockScreenshots
+            prefs[KEY_AUTO_GENERATE_TITLES] = settings.autoGenerateTitles
         }
     }
 
