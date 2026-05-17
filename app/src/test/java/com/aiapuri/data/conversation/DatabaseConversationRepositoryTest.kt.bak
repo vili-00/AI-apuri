@@ -1,0 +1,285 @@
+package com.aiapuri.data.conversation
+
+import com.aiapuri.core.database.AiapuriDatabase
+import com.aiapuri.core.database.ContentEncryptor
+import com.aiapuri.core.model.Conversation
+import com.aiapuri.core.model.Message
+import com.aiapuri.core.model.MessageRole
+import com.aiapuri.core.model.MessageStatus
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import androidx.room.Room
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+import java.time.Instant
+
+/**
+ * Tests for [DatabaseConversationRepository] using an in-memory Room database.
+ *
+ * Uses a pass-through encryptor (no real encryption) since Android Keystore
+ * is unavailable in unit tests.
+ */
+class DatabaseConversationRepositoryTest {
+
+    private lateinit var database: AiapuriDatabase
+    private lateinit var repository: DatabaseConversationRepository
+
+    /** Pass-through encryptor for unit tests (no Android Keystore available). */
+    private val testEncryptor = object : ContentEncryptorWrapper {
+        override fun encrypt(plaintext: String?): String? = plaintext
+        override fun decrypt(encrypted: String?): String? = encrypted
+    }
+
+    @Before
+    fun setUp() {
+        database = Room.inMemoryDatabaseBuilder(
+            javaClass.classLoader.contextClassLoader?.let { javax.microedition.pim.PIMList.javaClass.classLoader }
+                ?: javaClass.classLoader,
+            AiapuriDatabase::class.java
+        ).build()
+
+        // We can't use ContentEncryptor in tests (needs Android Keystore),
+        // so we test the DAO layer directly
+    }
+
+    @After
+    fun tearDown() {
+        database.close()
+    }
+
+    // ==================== Conversation CRUD ====================
+
+    @Test
+    fun `insert and query conversation`() = runBlocking {
+        val conv = Conversation(
+            id = "conv-1",
+            title = "Test Chat",
+            model = "qwen3.6-27b"
+        )
+        val entity = ConversationEntity(
+            id = conv.id,
+            title = conv.title,
+            createdAt = conv.createdAt.epochSecond,
+            updatedAt = conv.updatedAt.epochSecond,
+            model = conv.model
+        )
+
+        database.conversationDao().insertConversation(entity)
+
+        val result = database.conversationDao().getConversationById("conv-1")
+        assertNotNull(result)
+        assertEquals("conv-1", result!!.id)
+        assertEquals("Test Chat", result.title)
+        assertEquals("qwen3.6-27b", result.model)
+    }
+
+    @Test
+    fun `delete conversation also deletes its messages`() = runBlocking {
+        val conv = ConversationEntity(
+            id = "conv-1",
+            title = "Test",
+            createdAt = Instant.now().epochSecond,
+            updatedAt = Instant.now().epochSecond,
+            model = "model-x"
+        )
+        val msg = MessageEntity(
+            id = "msg-1",
+            conversationId = "conv-1",
+            role = "USER",
+            content = "Hello",
+            createdAt = Instant.now().epochSecond,
+            status = "COMPLETE"
+        )
+
+        database.conversationDao().insertConversation(conv)
+        database.messageDao().insertMessage(msg)
+
+        // Delete conversation
+        database.messageDao().deleteMessagesForConversation("conv-1")
+        database.conversationDao().deleteConversation("conv-1")
+
+        val remainingConv = database.conversationDao().getConversationById("conv-1")
+        val remainingMsgs = database.messageDao().getMessagesForConversation("conv-1")
+
+        assertNull(remainingConv)
+        assertTrue(remainingMsgs.isEmpty())
+    }
+
+    @Test
+    fun `conversations are ordered by updatedAt descending`() = runBlocking {
+        val now = Instant.now().epochSecond
+        val older = ConversationEntity(
+            id = "conv-old",
+            title = "Old",
+            createdAt = now - 100,
+            updatedAt = now - 100,
+            model = "model-x"
+        )
+        val newer = ConversationEntity(
+            id = "conv-new",
+            title = "New",
+            createdAt = now,
+            updatedAt = now,
+            model = "model-x"
+        )
+
+        database.conversationDao().insertConversation(older)
+        database.conversationDao().insertConversation(newer)
+
+        val all = database.conversationDao().getAllConversations()
+        assertEquals(2, all.size)
+        assertEquals("conv-new", all[0].id)
+        assertEquals("conv-old", all[1].id)
+    }
+
+    // ==================== Message CRUD ====================
+
+    @Test
+    fun `insert and query messages for conversation`() = runBlocking {
+        val conv = ConversationEntity(
+            id = "conv-1",
+            title = "Test",
+            createdAt = Instant.now().epochSecond,
+            updatedAt = Instant.now().epochSecond,
+            model = "model-x"
+        )
+        database.conversationDao().insertConversation(conv)
+
+        val msg1 = MessageEntity(
+            id = "msg-1",
+            conversationId = "conv-1",
+            role = "USER",
+            content = "Hello",
+            createdAt = Instant.now().epochSecond,
+            status = "COMPLETE"
+        )
+        val msg2 = MessageEntity(
+            id = "msg-2",
+            conversationId = "conv-1",
+            role = "ASSISTANT",
+            content = "Hi there!",
+            createdAt = (Instant.now().epochSecond + 1),
+            status = "COMPLETE"
+        )
+
+        database.messageDao().insertMessage(msg1)
+        database.messageDao().insertMessage(msg2)
+
+        val messages = database.messageDao().getMessagesForConversation("conv-1")
+        assertEquals(2, messages.size)
+        assertEquals("USER", messages[0].role)
+        assertEquals("ASSISTANT", messages[1].role)
+    }
+
+    @Test
+    fun `update message status`() = runBlocking {
+        val msg = MessageEntity(
+            id = "msg-1",
+            conversationId = "conv-1",
+            role = "ASSISTANT",
+            content = "partial",
+            createdAt = Instant.now().epochSecond,
+            status = "STREAMING"
+        )
+        database.messageDao().insertMessage(msg)
+
+        database.messageDao().updateMessageStatus("msg-1", "COMPLETE", updatedAt = 0)
+
+        val updated = database.messageDao().getMessageById("msg-1")
+        assertNotNull(updated)
+        assertEquals("COMPLETE", updated!!.status)
+    }
+
+    @Test
+    fun `observeConversationSummaries returns reactive flow`() = runBlocking {
+        val summaries = database.conversationDao().observeConversationSummaries().first()
+        assertTrue(summaries.isEmpty())
+
+        val conv = ConversationEntity(
+            id = "conv-1",
+            title = "New Chat",
+            createdAt = Instant.now().epochSecond,
+            updatedAt = Instant.now().epochSecond,
+            model = "model-x"
+        )
+        database.conversationDao().insertConversation(conv)
+
+        val updatedSummaries = database.conversationDao().observeConversationSummaries().first()
+        assertEquals(1, updatedSummaries.size)
+        assertEquals("conv-1", updatedSummaries[0].id)
+    }
+
+    @Test
+    fun `deleteAllConversations clears everything`() = runBlocking {
+        database.conversationDao().insertConversation(
+            ConversationEntity(
+                id = "c1", title = "A",
+                createdAt = 1, updatedAt = 1, model = "m"
+            )
+        )
+        database.conversationDao().insertConversation(
+            ConversationEntity(
+                id = "c2", title = "B",
+                createdAt = 2, updatedAt = 2, model = "m"
+            )
+        )
+        database.messageDao().insertMessage(
+            MessageEntity(
+                id = "m1", conversationId = "c1",
+                role = "USER", content = "hi",
+                createdAt = 1, status = "COMPLETE"
+            )
+        )
+
+        database.messageDao().deleteAllMessages()
+        database.conversationDao().deleteAllConversations()
+
+        assertTrue(database.conversationDao().getAllConversations().isEmpty())
+        assertTrue(database.messageDao().getMessagesForConversation("c1").isEmpty())
+    }
+
+    // ==================== Foreign Key Cascade ====================
+
+    @Test
+    fun `deleting conversation cascades to delete messages`() = runBlocking {
+        val conv = ConversationEntity(
+            id = "conv-1",
+            title = "Test",
+            createdAt = Instant.now().epochSecond,
+            updatedAt = Instant.now().epochSecond,
+            model = "model-x"
+        )
+        database.conversationDao().insertConversation(conv)
+
+        database.messageDao().insertMessage(
+            MessageEntity(
+                id = "msg-1", conversationId = "conv-1",
+                role = "USER", content = "Hello",
+                createdAt = Instant.now().epochSecond, status = "COMPLETE"
+            )
+        )
+        database.messageDao().insertMessage(
+            MessageEntity(
+                id = "msg-2", conversationId = "conv-1",
+                role = "ASSISTANT", content = "Reply",
+                createdAt = (Instant.now().epochSecond + 1), status = "COMPLETE"
+            )
+        )
+
+        // Delete conversation — messages should cascade-delete
+        database.conversationDao().deleteConversation("conv-1")
+
+        val remaining = database.messageDao().getMessagesForConversation("conv-1")
+        assertTrue("Messages should be cascade-deleted", remaining.isEmpty())
+    }
+}
+
+/**
+ * Simple interface for ContentEncryptor to allow test doubles.
+ */
+interface ContentEncryptorWrapper {
+    fun encrypt(plaintext: String?): String?
+    fun decrypt(encrypted: String?): String?
+}

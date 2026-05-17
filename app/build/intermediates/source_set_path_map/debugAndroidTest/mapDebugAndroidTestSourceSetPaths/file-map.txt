@@ -1,0 +1,12 @@
+com.aiapuri.test.app-core-runtime-2.2.0-0 /home/agent/.gradle/caches/8.9/transforms/104d9d923641f2bcb0d0a016c9e34acd/transformed/core-runtime-2.2.0/res
+com.aiapuri.test.app-sqlite-2.4.0-1 /home/agent/.gradle/caches/8.9/transforms/49539527188b2e8f0749580a89a7cd01/transformed/sqlite-2.4.0/res
+com.aiapuri.test.app-sqlite-framework-2.4.0-2 /home/agent/.gradle/caches/8.9/transforms/52a691aaec2c64db10c672e920808e03/transformed/sqlite-framework-2.4.0/res
+com.aiapuri.test.app-core-1.6.1-3 /home/agent/.gradle/caches/8.9/transforms/86e585125374b40a711cc17792eb4faf/transformed/core-1.6.1/res
+com.aiapuri.test.app-annotation-experimental-1.4.1-4 /home/agent/.gradle/caches/8.9/transforms/88915d6dbfcbe71bc52a2983eed8eb38/transformed/annotation-experimental-1.4.1/res
+com.aiapuri.test.app-room-testing-2.6.1-5 /home/agent/.gradle/caches/8.9/transforms/a5bdfe5be5b48e7780b0eb7e4ce6385a/transformed/room-testing-2.6.1/res
+com.aiapuri.test.app-room-runtime-2.6.1-6 /home/agent/.gradle/caches/8.9/transforms/dd0d137dfeda7c92ec5bc15ae9360928/transformed/room-runtime-2.6.1/res
+com.aiapuri.test.app-tracing-1.2.0-7 /home/agent/.gradle/caches/8.9/transforms/f282f0a67ed543fa99d0856cb3c49d95/transformed/tracing-1.2.0/res
+com.aiapuri.test.app-androidTest-8 /home/agent/work/apuri/app/build/generated/res/resValues/androidTest/debug
+com.aiapuri.test.app-mergeDebugAndroidTestResources-9 /home/agent/work/apuri/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merged.dir
+com.aiapuri.test.app-mergeDebugAndroidTestResources-10 /home/agent/work/apuri/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/stripped.dir
+com.aiapuri.test.app-debugAndroidTest-11 /home/agent/work/apuri/app/build/intermediates/merged_res/debugAndroidTest/mergeDebugAndroidTestResources

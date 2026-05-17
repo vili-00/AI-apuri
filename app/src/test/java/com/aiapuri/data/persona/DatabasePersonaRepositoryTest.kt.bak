@@ -1,0 +1,145 @@
+package com.aiapuri.data.persona
+
+import com.aiapuri.core.database.AiapuriDatabase
+import com.aiapuri.core.model.Persona
+import kotlinx.coroutines.runBlocking
+import androidx.room.Room
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * Tests for persona DAO operations using an in-memory Room database.
+ */
+class DatabasePersonaRepositoryTest {
+
+    private lateinit var database: AiapuriDatabase
+
+    @Before
+    fun setUp() {
+        database = Room.inMemoryDatabaseBuilder(
+            javaClass.classLoader,
+            AiapuriDatabase::class.java
+        ).build()
+    }
+
+    @After
+    fun tearDown() {
+        database.close()
+    }
+
+    // ==================== Persona CRUD ====================
+
+    @Test
+    fun `insert and query persona`() = runBlocking {
+        val persona = PersonaEntity(
+            id = "persona-1",
+            name = "General Assistant",
+            description = "A helpful general assistant",
+            systemPrompt = "You are a helpful assistant.",
+            isDefault = true
+        )
+
+        database.personaDao().insertPersona(persona)
+
+        val result = database.personaDao().getPersonaById("persona-1")
+        assertNotNull(result)
+        assertEquals("General Assistant", result!!.name)
+        assertEquals("persona-1", result.id)
+        assertTrue(result.isDefault)
+    }
+
+    @Test
+    fun `getAllPersonas returns all personas`() = runBlocking {
+        database.personaDao().insertPersona(
+            PersonaEntity("p1", "Alpha", "desc", "prompt", false)
+        )
+        database.personaDao().insertPersona(
+            PersonaEntity("p2", "Beta", "desc", "prompt", false)
+        )
+
+        val all = database.personaDao().getAllPersonas()
+        assertEquals(2, all.size)
+    }
+
+    @Test
+    fun `setAsDefault clears previous default`() = runBlocking {
+        database.personaDao().insertPersona(
+            PersonaEntity("p1", "First", "desc", "prompt", true)
+        )
+        database.personaDao().insertPersona(
+            PersonaEntity("p2", "Second", "desc", "prompt", false)
+        )
+
+        // Set p2 as default
+        database.personaDao().clearAllDefaults()
+        database.personaDao().setAsDefault("p2")
+
+        val default = database.personaDao().getDefaultPersona()
+        assertNotNull(default)
+        assertEquals("p2", default!!.id)
+
+        // p1 should no longer be default
+        val p1 = database.personaDao().getPersonaById("p1")
+        assertNotNull(p1)
+        assertFalse(p1!!.isDefault)
+    }
+
+    @Test
+    fun `deletePersona removes it`() = runBlocking {
+        database.personaDao().insertPersona(
+            PersonaEntity("p1", "Test", "desc", "prompt", false)
+        )
+
+        database.personaDao().deletePersona("p1")
+
+        val result = database.personaDao().getPersonaById("p1")
+        assertNull(result)
+    }
+
+    @Test
+    fun `deleteAllPersonas clears everything`() = runBlocking {
+        database.personaDao().insertPersona(
+            PersonaEntity("p1", "A", "desc", "prompt", false)
+        )
+        database.personaDao().insertPersona(
+            PersonaEntity("p2", "B", "desc", "prompt", false)
+        )
+
+        database.personaDao().deleteAllPersonas()
+
+        val all = database.personaDao().getAllPersonas()
+        assertTrue(all.isEmpty())
+    }
+
+    @Test
+    fun `insertPersona with REPLACE updates existing`() = runBlocking {
+        database.personaDao().insertPersona(
+            PersonaEntity("p1", "Original", "old desc", "old prompt", false)
+        )
+        database.personaDao().insertPersona(
+            PersonaEntity("p1", "Updated", "new desc", "new prompt", true)
+        )
+
+        val result = database.personaDao().getPersonaById("p1")
+        assertNotNull(result)
+        assertEquals("Updated", result!!.name)
+        assertEquals("new desc", result.description)
+        assertTrue(result.isDefault)
+    }
+
+    @Test
+    fun `observeAllPersonas returns reactive flow`() = runBlocking {
+        var summaries = database.personaDao().observeAllPersonas().first()
+        assertTrue(summaries.isEmpty())
+
+        database.personaDao().insertPersona(
+            PersonaEntity("p1", "New", "desc", "prompt", false)
+        )
+
+        summaries = database.personaDao().observeAllPersonas().first()
+        assertEquals(1, summaries.size)
+        assertEquals("New", summaries[0].name)
+    }
+}
