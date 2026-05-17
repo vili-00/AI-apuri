@@ -1,7 +1,6 @@
 package com.aiapuri.data.persona
 
 import com.aiapuri.core.database.AiapuriDatabase
-import com.aiapuri.core.database.ContentEncryptor
 import com.aiapuri.core.model.Persona
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking

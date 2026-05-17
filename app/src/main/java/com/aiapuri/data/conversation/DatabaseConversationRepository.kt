@@ -1,7 +1,6 @@
 package com.aiapuri.data.conversation
 
 import com.aiapuri.core.database.AiapuriDatabase
-import com.aiapuri.core.database.ContentEncryptor
 import com.aiapuri.core.model.Conversation
 import com.aiapuri.core.model.ConversationSummary
 import com.aiapuri.core.model.ConversationWithMessages
@@ -14,11 +13,13 @@ import java.time.Instant
 /**
  * Room-backed implementation of [ConversationRepository].
  *
- * Message content is encrypted at rest using [ContentEncryptor].
+ * Message content is stored as plaintext in the Room database.
+ * The database file resides in Android internal storage, which is
+ * protected by Android's file-based encryption (FBE) on supported devices.
+ * API keys and other secrets are protected separately via EncryptedStringStorage.
  */
 class DatabaseConversationRepository(
-    private val database: AiapuriDatabase,
-    private val encryptor: ContentEncryptor
+    private val database: AiapuriDatabase
 ) : ConversationRepository {
 
     private val conversationDao: ConversationDao = database.conversationDao()
@@ -48,7 +49,7 @@ class DatabaseConversationRepository(
 
     override suspend fun getConversationWithMessages(id: String): ConversationWithMessages? {
         val conversation = getConversation(id) ?: return null
-        val messages = messageDao.getMessagesForConversation(id).map { it.toDomain(encryptor) }
+        val messages = messageDao.getMessagesForConversation(id).map { it.toDomain() }
         return ConversationWithMessages(conversation, messages)
     }
 
@@ -82,11 +83,11 @@ class DatabaseConversationRepository(
 
     override fun observeMessages(conversationId: String): Flow<List<Message>> {
         return messageDao.observeMessagesForConversation(conversationId)
-            .map { entities -> entities.map { it.toDomain(encryptor) } }
+            .map { entities -> entities.map { it.toDomain() } }
     }
 
     override suspend fun saveMessage(message: Message) {
-        messageDao.insertMessage(message.toEntity(encryptor))
+        messageDao.insertMessage(message.toEntity())
         // Update conversation timestamp
         conversationDao.updateTimestamp(
             message.conversationId,
@@ -95,7 +96,7 @@ class DatabaseConversationRepository(
     }
 
     override suspend fun saveMessages(messages: List<Message>) {
-        messageDao.insertMessages(messages.map { it.toEntity(encryptor) })
+        messageDao.insertMessages(messages.map { it.toEntity() })
         // Update conversation timestamp
         if (messages.isNotEmpty()) {
             val convId = messages.first().conversationId
@@ -112,9 +113,7 @@ class DatabaseConversationRepository(
         content: String,
         status: MessageStatus
     ) {
-        // Encrypt content before storing
-        val encryptedContent = encryptor.encrypt(content) ?: content
-        messageDao.updateMessageStatus(id, status.name, encryptedContent, Instant.now().epochSecond)
+        messageDao.updateMessageStatus(id, status.name, content, Instant.now().epochSecond)
     }
 
     // ==================== Mapping helpers ====================
@@ -143,24 +142,23 @@ class DatabaseConversationRepository(
         )
     }
 
-    private fun Message.toEntity(encryptor: ContentEncryptor): MessageEntity {
+    private fun Message.toEntity(): MessageEntity {
         return MessageEntity(
             id = id,
             conversationId = conversationId,
             role = role.name,
-            content = encryptor.encrypt(content) ?: content,
+            content = content,
             createdAt = createdAt.epochSecond,
             status = status.name
         )
     }
 
-    private fun MessageEntity.toDomain(encryptor: ContentEncryptor): Message {
-        val decryptedContent = encryptor.decrypt(content) ?: content
+    private fun MessageEntity.toDomain(): Message {
         return Message(
             id = id,
             conversationId = conversationId,
             role = com.aiapuri.core.model.MessageRole.valueOf(role),
-            content = decryptedContent,
+            content = content,
             createdAt = Instant.ofEpochSecond(createdAt),
             status = MessageStatus.valueOf(status)
         )

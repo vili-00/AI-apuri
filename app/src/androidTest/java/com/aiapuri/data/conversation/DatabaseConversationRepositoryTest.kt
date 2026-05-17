@@ -32,7 +32,7 @@ class DatabaseConversationRepositoryTest {
         database = Room.inMemoryDatabaseBuilder(context, AiapuriDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = DatabaseConversationRepository(database, com.aiapuri.core.database.ContentEncryptor(context))
+        repository = DatabaseConversationRepository(database)
     }
 
     @After
@@ -140,7 +140,7 @@ class DatabaseConversationRepositoryTest {
     }
 
     @Test
-    fun `message content is encrypted at rest`() = runBlocking {
+    fun `message content is stored as plaintext`() = runBlocking {
         val conv = com.aiapuri.core.model.Conversation(
             id = "conv-1",
             title = "Test",
@@ -148,7 +148,7 @@ class DatabaseConversationRepositoryTest {
         )
         repository.createConversation(conv)
 
-        val originalContent = "Secret message content"
+        val originalContent = "Hello world"
         val msg = com.aiapuri.core.model.Message(
             id = "msg-1",
             conversationId = "conv-1",
@@ -157,16 +157,16 @@ class DatabaseConversationRepositoryTest {
         )
         repository.saveMessage(msg)
 
-        // Read raw entity from DAO — should be encrypted
+        // Read raw entity from DAO — should be plaintext
         val rawEntity = database.messageDao().getMessageById("msg-1")
         assertNotNull(rawEntity)
-        assertNotEquals(
-            "Content should be encrypted in the database",
+        assertEquals(
+            "Content should be stored as plaintext in the database",
             originalContent,
             rawEntity!!.content
         )
 
-        // Read through repository — should be decrypted
+        // Read through repository — should match
         val messages = repository.observeMessages("conv-1").first()
         assertEquals(1, messages.size)
         assertEquals(originalContent, messages[0].content)
@@ -243,6 +243,49 @@ class DatabaseConversationRepositoryTest {
         val updated = repository.getConversation("conv-1")
         assertNotNull(updated)
         assertEquals("Renamed", updated!!.title)
+    }
+
+    @Test
+    fun `messages survive database re-read simulating app restart`() = runBlocking {
+        val conv = com.aiapuri.core.model.Conversation(
+            id = "conv-1",
+            title = "Test",
+            model = "model-x"
+        )
+        repository.createConversation(conv)
+
+        val userMsg = com.aiapuri.core.model.Message(
+            id = "msg-1",
+            conversationId = "conv-1",
+            role = MessageRole.USER,
+            content = "Hello from user"
+        )
+        val assistantMsg = com.aiapuri.core.model.Message(
+            id = "msg-2",
+            conversationId = "conv-1",
+            role = MessageRole.ASSISTANT,
+            content = "Hello from assistant"
+        )
+        repository.saveMessage(userMsg)
+        repository.saveMessage(assistantMsg)
+
+        // Verify messages are readable immediately
+        var messages = repository.observeMessages("conv-1").first()
+        assertEquals(2, messages.size)
+        assertEquals("Hello from user", messages[0].content)
+        assertEquals("Hello from assistant", messages[1].content)
+
+        // Simulate app restart by re-reading from DAO directly
+        val rawEntities = database.messageDao().getMessagesForConversation("conv-1")
+        assertEquals(2, rawEntities.size)
+        assertEquals("Hello from user", rawEntities[0].content)
+        assertEquals("Hello from assistant", rawEntities[1].content)
+
+        // Verify observeMessages still returns readable content
+        messages = repository.observeMessages("conv-1").first()
+        assertEquals(2, messages.size)
+        assertEquals("Hello from user", messages[0].content)
+        assertEquals("Hello from assistant", messages[1].content)
     }
 
     @Test
