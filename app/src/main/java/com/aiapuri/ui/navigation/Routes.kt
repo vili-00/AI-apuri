@@ -16,4 +16,5 @@ object Routes {
     const val CHAT_ARGS_CONVERSATION_ID = "conversationId"
     const val SETTINGS = "settings"
     const val PERSONAS = "personas"
+    const val DIAGNOSTICS = "diagnostics"
 }

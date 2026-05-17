@@ -29,6 +29,7 @@ import com.aiapuri.ui.navigation.Routes
 import com.aiapuri.ui.lock.AppLockScreen
 import com.aiapuri.ui.onboarding.OnboardingScreen
 import com.aiapuri.ui.personas.PersonaScreen
+import com.aiapuri.ui.diagnostics.DiagnosticsScreen
 import com.aiapuri.ui.settings.SettingsScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -219,12 +220,23 @@ private fun AppNavHost(
                         popUpTo(Routes.CONVERSATIONS) { inclusive = true }
                     }
                 },
+                onNavigateToDiagnostics = {
+                    navController.navigate(Routes.DIAGNOSTICS)
+                },
                 application = application
             )
         }
 
         composable(Routes.PERSONAS) {
             PersonaScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Routes.DIAGNOSTICS) {
+            DiagnosticsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

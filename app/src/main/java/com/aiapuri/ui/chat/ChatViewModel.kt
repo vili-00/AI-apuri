@@ -17,6 +17,7 @@ import com.aiapuri.data.persona.PersonaRepository
 import com.aiapuri.data.settings.SettingsRepository
 import com.aiapuri.domain.chat.StreamingChatUseCase
 import com.aiapuri.domain.chat.StreamingChatUseCase.StreamingUpdate
+import com.aiapuri.core.util.ErrorMapper
 import com.aiapuri.core.util.TitleGenerator
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
@@ -28,15 +29,21 @@ import java.util.UUID
 /**
  * A structured error displayed to the user.
  *
- * @property userMessage Human-readable message shown in the banner (never null).
- * @property technicalMessage Optional technical detail for debugging (may be null).
- * @property canRetry Whether the Retry button should be enabled.
+ * Wraps a central [AppError] with a redacted technical detail.
+ * The technical detail is always safe to display — API keys, chat content,
+ * and secrets are stripped by [ErrorMapper].
+ *
+ * @property appError The central error classification.
+ * @property technicalMessage Optional redacted technical detail for debugging.
  */
 data class UiError(
-    val userMessage: String,
-    val technicalMessage: String? = null,
-    val canRetry: Boolean = true
-)
+    val appError: com.aiapuri.core.model.AppError,
+    val technicalMessage: String? = null
+) {
+    val userMessage: String get() = appError.userMessage
+    val canRetry: Boolean get() = appError.isRetryable
+    val suggestedAction: com.aiapuri.core.model.SuggestedAction get() = appError.suggestedAction
+}
 
 /**
  * UI state for the chat screen.
@@ -117,9 +124,11 @@ class ChatViewModel(
                     uiState = uiState.copy(
                         conversationExists = false,
                         error = UiError(
-                            userMessage = "Conversation not found",
-                            technicalMessage = null,
-                            canRetry = false
+                            appError = com.aiapuri.core.model.AppError.Unknown(
+                                userMessage = "Conversation not found",
+                                isRetryable = false
+                            ),
+                            technicalMessage = null
                         )
                     )
                 }
@@ -335,13 +344,13 @@ class ChatViewModel(
 
                             is StreamingUpdate.Error -> {
                                 // Streaming error — show error banner
+                                val mappedError = ErrorMapper.mapStreamingMessage(update.userMessage)
                                 uiState = uiState.copy(
                                     isStreaming = false,
                                     streamingMessageId = null,
                                     error = UiError(
-                                        userMessage = update.userMessage,
-                                        technicalMessage = update.technicalDetail,
-                                        canRetry = update.isRetryable
+                                        appError = mappedError,
+                                        technicalMessage = update.technicalDetail
                                     )
                                 )
                             }
@@ -354,14 +363,13 @@ class ChatViewModel(
                 // the stopStreaming() method cancels the coroutine context.
 
             } catch (e: Exception) {
-                val safeMessage = e.message ?: "${e.javaClass.simpleName}"
+                val mappedError = ErrorMapper.map(e)
                 uiState = uiState.copy(
                     isStreaming = false,
                     streamingMessageId = null,
                     error = UiError(
-                        userMessage = "Failed to send message",
-                        technicalMessage = safeMessage,
-                        canRetry = true
+                        appError = mappedError,
+                        technicalMessage = mappedError.technicalDetail
                     )
                 )
             } finally {
@@ -443,13 +451,13 @@ class ChatViewModel(
                         }
 
                         is StreamingUpdate.Error -> {
+                            val mappedError = ErrorMapper.mapStreamingMessage(update.userMessage)
                             uiState = uiState.copy(
                                 isStreaming = false,
                                 streamingMessageId = null,
                                 error = UiError(
-                                    userMessage = update.userMessage,
-                                    technicalMessage = update.technicalDetail,
-                                    canRetry = update.isRetryable
+                                    appError = mappedError,
+                                    technicalMessage = update.technicalDetail
                                 )
                             )
                         }
@@ -457,14 +465,13 @@ class ChatViewModel(
                 }
 
             } catch (e: Exception) {
-                val safeMessage = e.message ?: "${e.javaClass.simpleName}"
+                val mappedError = ErrorMapper.map(e)
                 uiState = uiState.copy(
                     isStreaming = false,
                     streamingMessageId = null,
                     error = UiError(
-                        userMessage = "Retry failed",
-                        technicalMessage = safeMessage,
-                        canRetry = true
+                        appError = mappedError,
+                        technicalMessage = mappedError.technicalDetail
                     )
                 )
             }

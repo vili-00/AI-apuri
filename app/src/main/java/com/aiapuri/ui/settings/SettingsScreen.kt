@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.first
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToOnboarding: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
     application: AiapuriApplication,
     modifier: Modifier = Modifier
 ) {
@@ -65,7 +66,8 @@ fun SettingsScreen(
                 onSaved = {
                     // Stay on settings screen after save — user can navigate back manually
                 },
-                showOnboardingHint = false
+                showOnboardingHint = false,
+                onNavigateToDiagnostics = onNavigateToDiagnostics
             )
         }
     }

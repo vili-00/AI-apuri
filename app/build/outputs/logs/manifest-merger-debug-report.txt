@@ -1,9 +1,20 @@
 -- Merging decision tree log ---
+provider#androidx.core.content.FileProvider
+INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:28:9-36:20
+	android:grantUriPermissions
+		ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:32:13-47
+	android:authorities
+		INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml
+		ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:30:13-64
+	android:exported
+		ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:31:13-37
+	android:name
+		ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:29:13-62
 manifest
-ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:2:1-28:12
-INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:2:1-28:12
-INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:2:1-28:12
-INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:2:1-28:12
+ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:2:1-38:12
+INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:2:1-38:12
+INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:2:1-38:12
+INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:2:1-38:12
 MERGED from [androidx.navigation:navigation-common:2.8.3] /home/agent/.gradle/caches/8.9/transforms/e5aafa5494e9acba1354bc948a6a2c55/transformed/navigation-common-2.8.3/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.navigation:navigation-runtime:2.8.3] /home/agent/.gradle/caches/8.9/transforms/87c5932047ecb8f6f99ed1abae733a62/transformed/navigation-runtime-2.8.3/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.navigation:navigation-common-ktx:2.8.3] /home/agent/.gradle/caches/8.9/transforms/4bb20b9be026a38b9520dd2dac6f90ab/transformed/navigation-common-ktx-2.8.3/AndroidManifest.xml:2:1-7:12
@@ -97,8 +108,8 @@ ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:5:5-79
 	android:name
 		ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:5:22-76
 application
-ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:7:5-27:19
-INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:7:5-27:19
+ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:7:5-37:19
+INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:7:5-37:19
 MERGED from [androidx.compose.ui:ui-tooling-android:1.7.2] /home/agent/.gradle/caches/8.9/transforms/1f19765e2878835a4720f08dae20a9ea/transformed/ui-tooling-release/AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.compose.ui:ui-tooling-android:1.7.2] /home/agent/.gradle/caches/8.9/transforms/1f19765e2878835a4720f08dae20a9ea/transformed/ui-tooling-release/AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.window:window:1.0.0] /home/agent/.gradle/caches/8.9/transforms/0bcc0636e5dc86a38013a9587b234596/transformed/window-1.0.0/AndroidManifest.xml:24:5-31:19
@@ -159,6 +170,12 @@ category#android.intent.category.LAUNCHER
 ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:24:17-77
 	android:name
 		ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:24:27-74
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:33:13-35:54
+	android:resource
+		ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:35:17-51
+	android:name
+		ADDED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml:34:17-67
 uses-sdk
 INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/agent/work/apuri/app/src/main/AndroidManifest.xml

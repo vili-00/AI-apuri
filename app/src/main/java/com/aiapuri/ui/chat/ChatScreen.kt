@@ -207,6 +207,9 @@ private fun ChatEmptyState(modifier: Modifier = Modifier) {
 
 /**
  * Error banner for chat errors with optional retry.
+ *
+ * Technical details are shown in an expandable section so they don't
+ * clutter the UI but remain accessible for debugging.
  */
 @Composable
 private fun ChatErrorBanner(
@@ -217,6 +220,8 @@ private fun ChatErrorBanner(
     retryEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
+    var showDetails by remember { mutableStateOf(false) }
+
     Card(
         modifier = modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         colors = CardDefaults.cardColors(
@@ -249,14 +254,35 @@ private fun ChatErrorBanner(
                     Text("Dismiss")
                 }
             }
-            // Show technical detail if available
+
+            // Expandable technical detail
             technicalMessage?.let { detail ->
-                Text(
-                    text = detail,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(start = 28.dp, top = 4.dp)
-                )
+                TextButton(
+                    onClick = { showDetails = !showDetails },
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
+                    Icon(
+                        imageVector = if (showDetails) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (showDetails) "Hide details" else "Show details",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+
+                AnimatedVisibility(visible = showDetails) {
+                    Text(
+                        text = detail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        modifier = Modifier
+                            .padding(start = 28.dp, top = 4.dp, bottom = 4.dp)
+                    )
+                }
             }
         }
     }

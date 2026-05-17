@@ -45,6 +45,9 @@ interface ConversationDao {
     @Query("DELETE FROM conversations")
     suspend fun deleteAllConversations()
 
+    @Query("SELECT COUNT(*) FROM conversations")
+    suspend fun countConversations(): Int
+
     /**
      * Update the title of a conversation only if it still has the default placeholder title.
      * This prevents overwriting a user-provided manual rename.

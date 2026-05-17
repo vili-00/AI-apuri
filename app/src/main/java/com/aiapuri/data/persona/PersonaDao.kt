@@ -38,4 +38,7 @@ interface PersonaDao {
 
     @Query("DELETE FROM personas")
     suspend fun deleteAllPersonas()
+
+    @Query("SELECT COUNT(*) FROM personas")
+    suspend fun countPersonas(): Int
 }

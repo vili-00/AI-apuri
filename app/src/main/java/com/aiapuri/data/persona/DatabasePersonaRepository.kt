@@ -53,6 +53,10 @@ class DatabasePersonaRepository(
         personaDao.deleteAllPersonas()
     }
 
+    override suspend fun countPersonas(): Int {
+        return personaDao.countPersonas()
+    }
+
     // ==================== Mapping helpers ====================
 
     private fun Persona.toEntity(): PersonaEntity {

@@ -93,6 +93,10 @@ class DatabaseConversationRepository(
         conversationDao.deleteAllConversations()
     }
 
+    override suspend fun countConversations(): Int {
+        return conversationDao.countConversations()
+    }
+
     // ==================== Messages ====================
 
     override fun observeMessages(conversationId: String): Flow<List<Message>> {

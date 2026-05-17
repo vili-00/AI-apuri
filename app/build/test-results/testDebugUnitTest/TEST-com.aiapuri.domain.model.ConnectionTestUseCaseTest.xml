@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.aiapuri.domain.model.ConnectionTestUseCaseTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-05-17T17:15:48" hostname="pi-sandbox" time="0.062">
+<testsuite name="com.aiapuri.domain.model.ConnectionTestUseCaseTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-05-17T17:28:07" hostname="pi-sandbox" time="0.057">
   <properties/>
-  <testcase name="connection test returns InvalidUrl for empty URL" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.002"/>
-  <testcase name="connection test returns Success with empty models when no models available" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.01"/>
+  <testcase name="connection test returns InvalidUrl for empty URL" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.001"/>
+  <testcase name="connection test returns Success with empty models when no models available" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.006"/>
   <testcase name="connection test returns ServerError when health check returns 503" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.005"/>
-  <testcase name="connection test returns InvalidUrl for ftp scheme" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.002"/>
+  <testcase name="connection test returns InvalidUrl for ftp scheme" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.001"/>
   <testcase name="connection test returns Unauthorized when health check fails with 401" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.005"/>
-  <testcase name="connection test returns Success with models on healthy server" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.007"/>
+  <testcase name="connection test returns Success with models on healthy server" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.006"/>
   <testcase name="connection test returns ServerError when models response is malformed" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.008"/>
-  <testcase name="connection test returns Unreachable when server disconnects" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.004"/>
+  <testcase name="connection test returns Unreachable when server disconnects" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.005"/>
   <testcase name="connection test returns ServerError when models endpoint returns 500" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.007"/>
   <testcase name="connection test returns Unauthorized when models endpoint fails with 401" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.006"/>
   <testcase name="connection test works without API key when server allows it" classname="com.aiapuri.domain.model.ConnectionTestUseCaseTest" time="0.006"/>

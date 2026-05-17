@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
@@ -69,6 +70,7 @@ fun SettingsForm(
     viewModel: SettingsViewModel,
     onSaved: () -> Unit,
     showOnboardingHint: Boolean = false,
+    onNavigateToDiagnostics: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -253,7 +255,8 @@ fun SettingsForm(
         // ---- Privacy & Security section ----
         PrivacyAndSecuritySection(
             viewModel = viewModel,
-            showOnboardingHint = showOnboardingHint
+            showOnboardingHint = showOnboardingHint,
+            onNavigateToDiagnostics = onNavigateToDiagnostics
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -505,6 +508,7 @@ private fun androidx.compose.material3.ColorScheme.warningColor(): Color {
 private fun PrivacyAndSecuritySection(
     viewModel: SettingsViewModel,
     showOnboardingHint: Boolean,
+    onNavigateToDiagnostics: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     // Don't show privacy controls during onboarding — user hasn't configured the server yet
@@ -600,6 +604,23 @@ private fun PrivacyAndSecuritySection(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Diagnostics button
+            onNavigateToDiagnostics?.let { navigate ->
+                TextButton(
+                    onClick = navigate,
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BugReport,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Diagnostics")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Clear all data button
             TextButton(

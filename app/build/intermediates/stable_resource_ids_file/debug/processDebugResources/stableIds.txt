@@ -1,4 +1,4 @@
-com.aiapuri:xml/network_security_config = 0x7f100000
+com.aiapuri:xml/network_security_config = 0x7f100001
 com.aiapuri:styleable/View = 0x7f0f0037
 com.aiapuri:styleable/SwitchCompat = 0x7f0f0034
 com.aiapuri:styleable/StateListDrawable = 0x7f0f0032
@@ -568,6 +568,7 @@ com.aiapuri:drawable/abc_list_divider_material = 0x7f07002a
 com.aiapuri:drawable/abc_ic_star_half_black_36dp = 0x7f070025
 com.aiapuri:drawable/abc_ic_star_black_48dp = 0x7f070023
 com.aiapuri:drawable/abc_ic_star_black_16dp = 0x7f070021
+com.aiapuri:xml/file_paths = 0x7f100000
 com.aiapuri:id/split_action_bar = 0x7f08009b
 com.aiapuri:drawable/abc_ic_menu_share_mtrl_alpha = 0x7f07001f
 com.aiapuri:attr/splitMinWidth = 0x7f0300f8

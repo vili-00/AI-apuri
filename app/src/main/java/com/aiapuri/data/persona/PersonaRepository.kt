@@ -38,4 +38,7 @@ interface PersonaRepository {
 
     /** Delete all personas. */
     suspend fun deleteAllPersonas()
+
+    /** Count total personas (for diagnostics). */
+    suspend fun countPersonas(): Int
 }

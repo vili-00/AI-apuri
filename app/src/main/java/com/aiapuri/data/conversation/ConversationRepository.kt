@@ -67,4 +67,7 @@ interface ConversationRepository {
 
     /** Delete all conversations and messages. */
     suspend fun deleteAllConversations()
+
+    /** Count total conversations (for diagnostics). */
+    suspend fun countConversations(): Int
 }
