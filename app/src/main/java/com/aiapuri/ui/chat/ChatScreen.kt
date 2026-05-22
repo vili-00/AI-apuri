@@ -68,7 +68,13 @@ fun ChatScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(state.conversationTitle) },
+                title = {
+                    Text(
+                        text = state.conversationTitle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -154,17 +160,20 @@ fun ChatScreen(
             }
 
             // Message composer (or stop button during streaming)
-            if (state.isStreaming) {
-                StreamingStopButton(
-                    onStop = viewModel::stopStreaming
-                )
-            } else {
-                MessageComposer(
-                    text = state.composerText,
-                    onTextChanged = viewModel::onComposerTextChanged,
-                    onSend = viewModel::sendMessage,
-                    enabled = !state.isSending && !state.isStreaming
-                )
+            // imePadding pushes this area above the soft keyboard
+            Box(modifier = Modifier.imePadding()) {
+                if (state.isStreaming) {
+                    StreamingStopButton(
+                        onStop = viewModel::stopStreaming
+                    )
+                } else {
+                    MessageComposer(
+                        text = state.composerText,
+                        onTextChanged = viewModel::onComposerTextChanged,
+                        onSend = viewModel::sendMessage,
+                        enabled = !state.isSending && !state.isStreaming
+                    )
+                }
             }
         }
     }
@@ -569,7 +578,8 @@ private fun ChatPersonaSelector(
             Text(
                 text = currentPersona?.name ?: "Persona",
                 style = MaterialTheme.typography.labelMedium,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
 
@@ -696,7 +706,8 @@ private fun ChatModelSelector(
                 Text(
                     text = if (currentModel.isNotBlank()) currentModel else "Model",
                     style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

@@ -62,7 +62,7 @@ object DiagnosticsCollector {
             val pkgInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             sb.appendLine("Package: ${pkgInfo.packageName}")
             sb.appendLine("Version name: ${pkgInfo.versionName}")
-            sb.appendLine("Version code: ${pkgInfo.longVersionCode}")
+            sb.appendLine("Version code: ${if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) pkgInfo.longVersionCode else pkgInfo.versionCode}")
         } catch (e: Exception) {
             sb.appendLine("Package info: unavailable")
         }
@@ -109,8 +109,8 @@ object DiagnosticsCollector {
 
         // ---- Encryption status ----
         sb.appendLine("--- Encryption ---")
-        sb.appendLine("Database encrypted at rest: Yes (SQLCipher)")
-        sb.appendLine("API key encrypted at rest: Yes (Android Keystore)")
+        sb.appendLine("Database encrypted at rest: Yes (AES-GCM field-level, Android Keystore)")
+        sb.appendLine("API key encrypted at rest: Yes (AES-GCM, Android Keystore)")
         sb.appendLine()
 
         sb.appendLine("=== End of Diagnostics Report ===")

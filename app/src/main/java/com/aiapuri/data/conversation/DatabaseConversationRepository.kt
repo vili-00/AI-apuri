@@ -1,6 +1,7 @@
 package com.aiapuri.data.conversation
 
 import com.aiapuri.core.database.AiapuriDatabase
+import com.aiapuri.core.database.ContentEncryptor
 import com.aiapuri.core.model.Conversation
 import com.aiapuri.core.model.ConversationSummary
 import com.aiapuri.core.model.ConversationWithMessages
@@ -13,13 +14,13 @@ import java.time.Instant
 /**
  * Room-backed implementation of [ConversationRepository].
  *
- * Message content is stored as plaintext in the Room database.
- * The database file resides in Android internal storage, which is
- * protected by Android's file-based encryption (FBE) on supported devices.
+ * Message content and system prompts are encrypted at rest using
+ * AES-GCM field-level encryption via [ContentEncryptor].
  * API keys and other secrets are protected separately via EncryptedStringStorage.
  */
 class DatabaseConversationRepository(
-    private val database: AiapuriDatabase
+    private val database: AiapuriDatabase,
+    private val encryptor: ContentEncryptor
 ) : ConversationRepository {
 
     private val conversationDao: ConversationDao = database.conversationDao()
@@ -131,7 +132,9 @@ class DatabaseConversationRepository(
         content: String,
         status: MessageStatus
     ) {
-        messageDao.updateMessageStatus(id, status.name, content, Instant.now().epochSecond)
+        // Encrypt content before writing to keep all message content consistently encrypted at rest.
+        val encryptedContent = encryptor.encrypt(content) ?: ""
+        messageDao.updateMessageStatus(id, status.name, encryptedContent, Instant.now().epochSecond)
     }
 
     // ==================== Mapping helpers ====================
@@ -165,7 +168,12 @@ class DatabaseConversationRepository(
             id = id,
             conversationId = conversationId,
             role = role.name,
-            content = content,
+            content = if (content.isNotBlank()) {
+                encryptor.encrypt(content)
+                    ?: throw IllegalStateException("encryptor.encrypt returned null for non-blank content")
+            } else {
+                ""  // Blank content (e.g. streaming placeholder) needs no encryption
+            },
             createdAt = createdAt.epochSecond,
             status = status.name
         )
@@ -176,7 +184,9 @@ class DatabaseConversationRepository(
             id = id,
             conversationId = conversationId,
             role = com.aiapuri.core.model.MessageRole.valueOf(role),
-            content = content,
+            content = if (content.isEmpty()) ""
+                else encryptor.decrypt(content)
+                    ?: com.aiapuri.core.database.ContentEncryptor.DECRYPT_ERROR_PLACEHOLDER,
             createdAt = Instant.ofEpochSecond(createdAt),
             status = MessageStatus.valueOf(status)
         )

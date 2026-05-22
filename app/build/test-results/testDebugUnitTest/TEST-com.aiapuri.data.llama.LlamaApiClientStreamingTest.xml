@@ -1,14 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.aiapuri.data.llama.LlamaApiClientStreamingTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-05-17T17:46:40" hostname="pi-sandbox" time="0.096">
+<testsuite name="com.aiapuri.data.llama.LlamaApiClientStreamingTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-05-22T11:12:14" hostname="pi-sandbox" time="0.202">
   <properties/>
-  <testcase name="streaming returns text deltas and complete event" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.053"/>
-  <testcase name="streaming emits error on server failure" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
-  <testcase name="streaming request includes auth header" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
-  <testcase name="streaming handles single chunk response" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
-  <testcase name="streaming emits error on connection failure" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
-  <testcase name="streaming request hits chat completions endpoint" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.005"/>
-  <testcase name="streaming handles empty content chunks gracefully" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
-  <testcase name="streaming handles malformed JSON chunks without crashing" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.007"/>
+  <testcase name="streaming preserves punctuation-only deltas" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.081"/>
+  <testcase name="streaming returns text deltas and complete event" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.011"/>
+  <testcase name="streamingOkHttpClient has connectTimeout" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.001"/>
+  <testcase name="streamingOkHttpClient has readTimeout disabled" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.002"/>
+  <testcase name="streaming preserves whitespace-only deltas" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.008"/>
+  <testcase name="streaming emits error on server failure" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.007"/>
+  <testcase name="streaming request includes auth header" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.008"/>
+  <testcase name="streamingOkHttpClient has callTimeout safety net" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.003"/>
+  <testcase name="streaming handles finish_reason with empty delta" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
+  <testcase name="streaming handles single chunk response" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.011"/>
+  <testcase name="streaming emits error on connection failure" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.014"/>
+  <testcase name="defaultOkHttpClient still has readTimeout for non-streaming endpoints" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.004"/>
+  <testcase name="streaming request hits chat completions endpoint" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.012"/>
+  <testcase name="streaming handles empty content chunks gracefully" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.013"/>
+  <testcase name="streaming handles malformed JSON chunks without crashing" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.009"/>
+  <testcase name="streaming handles finish_reason as completion signal" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.012"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

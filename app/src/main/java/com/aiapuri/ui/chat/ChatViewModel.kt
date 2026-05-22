@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import java.time.Instant
 import java.util.UUID
 
@@ -91,6 +92,9 @@ class ChatViewModel(
 
     var uiState by mutableStateOf(ChatUiState())
         private set
+
+    /** Reference to the active streaming coroutine job, for cancellation. */
+    private var activeStreamingJob: Job? = null
 
     /** Reactive message flow for this conversation. */
     private val messageFlow = conversationRepository.observeMessages(convId)
@@ -313,54 +317,9 @@ class ChatViewModel(
                 // Start streaming — isSending transitions to isStreaming
                 uiState = uiState.copy(isSending = false, isStreaming = true)
 
-                val streamingJob = viewModelScope.launch {
-                    streamingChatUseCase.startStreaming(
-                        conversationId = currentConvId,
-                        serverSettings = serverSettings
-                    ).collect { update ->
-                        when (update) {
-                            is StreamingUpdate.TextAppended -> {
-                                // Track the streaming message ID
-                                uiState = uiState.copy(streamingMessageId = update.messageId)
-                                // The message content is updated in the database and
-                                // will appear via the reactive message flow
-                            }
-
-                            is StreamingUpdate.Complete -> {
-                                // Streaming finished successfully
-                                uiState = uiState.copy(
-                                    isStreaming = false,
-                                    streamingMessageId = null
-                                )
-                            }
-
-                            is StreamingUpdate.Stopped -> {
-                                // User cancelled streaming
-                                uiState = uiState.copy(
-                                    isStreaming = false,
-                                    streamingMessageId = null
-                                )
-                            }
-
-                            is StreamingUpdate.Error -> {
-                                // Streaming error — show error banner
-                                val mappedError = ErrorMapper.mapStreamingMessage(update.userMessage)
-                                uiState = uiState.copy(
-                                    isStreaming = false,
-                                    streamingMessageId = null,
-                                    error = UiError(
-                                        appError = mappedError,
-                                        technicalMessage = update.technicalDetail
-                                    )
-                                )
-                            }
-                        }
-                    }
+                activeStreamingJob = launch {
+                    handleStreamingUpdates(currentConvId, serverSettings)
                 }
-
-                // Store the job reference so we can cancel it on stop
-                // We use a trick: the streaming flow will be cancelled when
-                // the stopStreaming() method cancels the coroutine context.
 
             } catch (e: Exception) {
                 val mappedError = ErrorMapper.map(e)
@@ -372,9 +331,72 @@ class ChatViewModel(
                         technicalMessage = mappedError.technicalDetail
                     )
                 )
-            } finally {
-                // isSending is cleared; isStreaming is managed by the streaming flow
             }
+        }
+    }
+
+    /**
+     * Collect streaming updates and apply them to the UI state.
+     * Called from an independent coroutine so the outer sendMessage coroutine
+     * can complete immediately.
+     */
+    private suspend fun handleStreamingUpdates(
+        conversationId: String,
+        serverSettings: com.aiapuri.core.model.ServerSettings
+    ) {
+        try {
+            streamingChatUseCase.startStreaming(
+                conversationId = conversationId,
+                serverSettings = serverSettings
+            ).collect { update ->
+                when (update) {
+                    is StreamingUpdate.TextAppended -> {
+                        // Track the streaming message ID
+                        uiState = uiState.copy(streamingMessageId = update.messageId)
+                        // The message content is updated in the database and
+                        // will appear via the reactive message flow
+                    }
+
+                    is StreamingUpdate.Complete -> {
+                        // Streaming finished successfully
+                        uiState = uiState.copy(
+                            isStreaming = false,
+                            streamingMessageId = null
+                        )
+                    }
+
+                    is StreamingUpdate.Stopped -> {
+                        // User cancelled streaming
+                        uiState = uiState.copy(
+                            isStreaming = false,
+                            streamingMessageId = null
+                        )
+                    }
+
+                    is StreamingUpdate.Error -> {
+                        // Streaming error — show error banner
+                        val mappedError = ErrorMapper.mapStreamingMessage(update.userMessage)
+                        uiState = uiState.copy(
+                            isStreaming = false,
+                            streamingMessageId = null,
+                            error = UiError(
+                                appError = mappedError,
+                                technicalMessage = update.technicalDetail
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            val mappedError = ErrorMapper.map(e)
+            uiState = uiState.copy(
+                isStreaming = false,
+                streamingMessageId = null,
+                error = UiError(
+                    appError = mappedError,
+                    technicalMessage = mappedError.technicalDetail
+                )
+            )
         }
     }
 
@@ -387,6 +409,10 @@ class ChatViewModel(
         if (!uiState.isStreaming) return
 
         viewModelScope.launch {
+            // Cancel the active streaming coroutine
+            activeStreamingJob?.cancel()
+            activeStreamingJob = null
+
             // Mark the streaming message as stopped
             uiState.streamingMessageId?.let { messageId ->
                 streamingChatUseCase.stopStreaming(messageId)
@@ -418,9 +444,9 @@ class ChatViewModel(
                 return
             }
 
-        viewModelScope.launch {
-            uiState = uiState.copy(isSending = true, error = null, isStreaming = false)
+        uiState = uiState.copy(isSending = true, error = null, isStreaming = false)
 
+        activeStreamingJob = viewModelScope.launch {
             try {
                 val serverSettings = settingsRepository.serverSettingsFlow.first()
 

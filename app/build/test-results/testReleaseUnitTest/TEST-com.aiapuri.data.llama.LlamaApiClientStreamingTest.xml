@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.aiapuri.data.llama.LlamaApiClientStreamingTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-05-22T10:02:27" hostname="pi-sandbox" time="0.114">
+  <properties/>
+  <testcase name="streaming returns text deltas and complete event" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.049"/>
+  <testcase name="streamingOkHttpClient has connectTimeout" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.003"/>
+  <testcase name="streamingOkHttpClient has readTimeout disabled" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.002"/>
+  <testcase name="streaming emits error on server failure" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
+  <testcase name="streaming request includes auth header" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.008"/>
+  <testcase name="streamingOkHttpClient has callTimeout safety net" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.002"/>
+  <testcase name="streaming handles single chunk response" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
+  <testcase name="streaming emits error on connection failure" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.009"/>
+  <testcase name="defaultOkHttpClient still has readTimeout for non-streaming endpoints" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.003"/>
+  <testcase name="streaming request hits chat completions endpoint" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.007"/>
+  <testcase name="streaming handles empty content chunks gracefully" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.006"/>
+  <testcase name="streaming handles malformed JSON chunks without crashing" classname="com.aiapuri.data.llama.LlamaApiClientStreamingTest" time="0.009"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

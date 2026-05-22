@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
 import com.aiapuri.core.database.AiapuriDatabase
+import com.aiapuri.core.database.ContentEncryptor
 import com.aiapuri.data.conversation.ConversationRepository
 import com.aiapuri.data.conversation.DatabaseConversationRepository
 import com.aiapuri.data.persona.DatabasePersonaRepository
@@ -27,14 +28,19 @@ class AiapuriApplication : Application() {
         AiapuriDatabase.build(this)
     }
 
+    /** Content encryptor for field-level encryption of sensitive data. */
+    val contentEncryptor: ContentEncryptor by lazy {
+        ContentEncryptor(this)
+    }
+
     /** Settings repository — initialized lazily on first access. */
     val settingsRepository: SettingsRepository by lazy {
         DataStoreSettingsRepository(this)
     }
 
-    /** Conversation repository — backed by Room database. */
+    /** Conversation repository — backed by Room database with field-level encryption. */
     val conversationRepository: ConversationRepository by lazy {
-        DatabaseConversationRepository(database)
+        DatabaseConversationRepository(database, contentEncryptor)
     }
 
     /** Persona repository — backed by Room database. */

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.aiapuri.data.llama.dto.StreamingParserTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-05-22T10:02:27" hostname="pi-sandbox" time="0.005">
+  <properties/>
+  <testcase name="chunk with extra unknown fields is parsed" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.001"/>
+  <testcase name="first chunk includes role and content" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.0"/>
+  <testcase name="finish reason length is parsed" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.0"/>
+  <testcase name="multiline content in a single delta is parsed" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.0"/>
+  <testcase name="chunk with empty choices list does not crash" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.001"/>
+  <testcase name="chunk with no content field is parsed" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.0"/>
+  <testcase name="unicode content in delta is preserved" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.0"/>
+  <testcase name="subsequent chunks may omit role" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.0"/>
+  <testcase name="very long content in delta is preserved" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.002"/>
+  <testcase name="chunk with multiple choices uses first" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.001"/>
+  <testcase name="finish reason stop is parsed" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.0"/>
+  <testcase name="empty content chunk is parsed without error" classname="com.aiapuri.data.llama.dto.StreamingParserTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
