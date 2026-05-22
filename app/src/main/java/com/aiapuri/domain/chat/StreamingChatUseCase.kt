@@ -12,9 +12,13 @@ import com.aiapuri.data.llama.OkHttpLlamaApiClient
 import com.aiapuri.data.persona.PersonaRepository
 import com.aiapuri.data.llama.dto.ChatCompletionRequest
 import com.aiapuri.data.llama.dto.ChatMessage
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.util.UUID
 
@@ -129,20 +133,48 @@ class StreamingChatUseCase(
             // Collect streaming events from the API client
             val accumulatedContent = StringBuilder()
 
-            client.chatCompletionStream(request).collect { event ->
+            // Channel to decouple database writes from the SSE collection loop.
+            // The callbackFlow in OkHttpLlamaApiClient uses trySend with a default
+            // buffer of 64. If the collect loop blocks (e.g. on Room writes), the
+            // buffer fills and tokens are silently dropped.
+            //
+            // This channel feeds a dedicated writer coroutine that runs on IO,
+            // keeping the SSE collection loop fast and preventing token loss.
+            val dbUpdateChannel = Channel<String>(capacity = 64)
+
+            // Wrap collection in a coroutineScope so we can launch the writer.
+            kotlinx.coroutines.coroutineScope {
+                // Single writer coroutine — processes database updates sequentially
+                // on the IO dispatcher. Guarantees ordering of writes.
+                val writerJob = launch {
+                    for (content in dbUpdateChannel) {
+                        withContext(Dispatchers.IO) {
+                            conversationRepository.updateMessageContentAndStatus(
+                                id = streamingMessageId,
+                                content = content,
+                                status = MessageStatus.STREAMING
+                            )
+                        }
+                    }
+                }
+
+                client.chatCompletionStream(request).collect { event ->
                 when (event) {
                     is ChatStreamEvent.TextDelta -> {
                         accumulatedContent.append(event.text)
-                        // Update the message content in the database and emit update
-                        conversationRepository.updateMessageContentAndStatus(
-                            id = streamingMessageId,
-                            content = accumulatedContent.toString(),
-                            status = MessageStatus.STREAMING
-                        )
-                        emit(StreamingUpdate.TextAppended(streamingMessageId, accumulatedContent.toString()))
+                        val currentContent = accumulatedContent.toString()
+                        // Non-blocking send to the writer coroutine.
+                        // If the channel is full, we drop this intermediate snapshot
+                        // (the next delta will have a newer snapshot).
+                        dbUpdateChannel.trySend(currentContent)
+                        emit(StreamingUpdate.TextAppended(streamingMessageId, currentContent))
                     }
 
                     is ChatStreamEvent.Complete -> {
+                        // Close the channel so the writer finishes pending updates
+                        dbUpdateChannel.close()
+                        writerJob.join()
+
                         val finalContent = accumulatedContent.toString()
                         val finalMessage = Message(
                             id = streamingMessageId,
@@ -152,7 +184,7 @@ class StreamingChatUseCase(
                             createdAt = Instant.now(),
                             status = MessageStatus.COMPLETE
                         )
-                        // Update status to COMPLETE
+                        // Final write with COMPLETE status
                         conversationRepository.updateMessageContentAndStatus(
                             id = streamingMessageId,
                             content = finalContent,
@@ -162,8 +194,9 @@ class StreamingChatUseCase(
                     }
 
                     is ChatStreamEvent.Stopped -> {
-                        // This should not happen from the API client directly —
-                        // it's emitted by the caller when cancelling.
+                        dbUpdateChannel.close()
+                        writerJob.join()
+
                         val partialContent = accumulatedContent.toString()
                         conversationRepository.updateMessageContentAndStatus(
                             id = streamingMessageId,
@@ -184,19 +217,20 @@ class StreamingChatUseCase(
                     }
 
                     is ChatStreamEvent.Error -> {
+                        dbUpdateChannel.close()
+                        writerJob.join()
+
                         val partialContent = accumulatedContent.toString()
                         val userFriendlyMessage = mapErrorToUserMessage(event.message)
                         val technicalDetail = event.message.take(200)
 
                         if (event.keepPartial) {
-                            // Save partial content as ERROR so it remains visible
                             conversationRepository.updateMessageContentAndStatus(
                                 id = streamingMessageId,
                                 content = partialContent,
                                 status = MessageStatus.ERROR
                             )
                         } else {
-                            // No partial content to keep
                             conversationRepository.updateMessageContentAndStatus(
                                 id = streamingMessageId,
                                 content = "",
@@ -213,6 +247,7 @@ class StreamingChatUseCase(
                         ))
                     }
                 }
+            }
             }
 
         } catch (e: LlamaApiException) {
