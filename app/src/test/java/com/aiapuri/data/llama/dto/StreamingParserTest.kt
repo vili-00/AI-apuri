@@ -162,4 +162,153 @@ class StreamingParserTest {
         val content = chunk.choices.firstOrNull()?.delta?.content
         assertEquals(longContent, content)
     }
+
+    // ==================== Whitespace and Punctuation Preservation ====================
+
+    @Test
+    fun `whitespace-only delta is parsed correctly`() {
+        // BPE tokenizers emit spaces as leading characters.
+        // A delta containing only " " must be preserved.
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":" "},"finishReason":null}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        val content = chunk.choices.firstOrNull()?.delta?.content
+        assertEquals(" ", content)
+    }
+
+    @Test
+    fun `leading-space delta is parsed correctly`() {
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":" world"},"finishReason":null}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        val content = chunk.choices.firstOrNull()?.delta?.content
+        assertEquals(" world", content)
+    }
+
+    @Test
+    fun `period-only delta is parsed correctly`() {
+        // Punctuation like "." often arrives as a standalone delta.
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":"."},"finishReason":null}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        val content = chunk.choices.firstOrNull()?.delta?.content
+        assertEquals(".", content)
+    }
+
+    @Test
+    fun `comma-only delta is parsed correctly`() {
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":","},"finishReason":null}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        val content = chunk.choices.firstOrNull()?.delta?.content
+        assertEquals(",", content)
+    }
+
+    @Test
+    fun `space-and-period delta is parsed correctly`() {
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":" ."},"finishReason":null}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        val content = chunk.choices.firstOrNull()?.delta?.content
+        assertEquals(" .", content)
+    }
+
+    @Test
+    fun `newline-only delta is parsed correctly`() {
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":"\n"},"finishReason":null}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        val content = chunk.choices.firstOrNull()?.delta?.content
+        assertEquals("\n", content)
+    }
+
+    @Test
+    fun `tab-only delta is parsed correctly`() {
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":"\t"},"finishReason":null}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        val content = chunk.choices.firstOrNull()?.delta?.content
+        assertEquals("\t", content)
+    }
+
+    @Test
+    fun `empty-string delta is distinct from whitespace delta`() {
+        // Empty string "" should be null/empty filtered.
+        // Whitespace " " should be preserved. They are different.
+        val emptyJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":""},"finishReason":null}]}
+        """
+        val spaceJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":" "},"finishReason":null}]}
+        """
+
+        val emptyChunk = json.decodeFromString<ChatCompletionChunk>(emptyJson)
+        val spaceChunk = json.decodeFromString<ChatCompletionChunk>(spaceJson)
+
+        val emptyContent = emptyChunk.choices.firstOrNull()?.delta?.content
+        val spaceContent = spaceChunk.choices.firstOrNull()?.delta?.content
+
+        assertEquals("", emptyContent)  // empty string — client should filter
+        assertEquals(" ", spaceContent)  // whitespace — client must preserve
+        assertNotEquals(emptyContent, spaceContent)
+    }
+
+    // ==================== Finish Reason ====================
+
+    @Test
+    fun `finish_reason stop is parsed`() {
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":"final"},"finishReason":"stop"}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        assertEquals("stop", chunk.choices.firstOrNull()?.finishReason)
+        assertEquals("final", chunk.choices.firstOrNull()?.delta?.content)
+    }
+
+    @Test
+    fun `finish_reason length is parsed`() {
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":"truncated"},"finishReason":"length"}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        assertEquals("length", chunk.choices.firstOrNull()?.finishReason)
+    }
+
+    @Test
+    fun `finish_reason null on intermediate chunks`() {
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{"content":"middle"},"finishReason":null}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        assertNull(chunk.choices.firstOrNull()?.finishReason)
+    }
+
+    @Test
+    fun `finish_reason chunk with empty delta`() {
+        // The final chunk may have finish_reason and an empty delta.
+        val chunkJson = """
+            {"id":"1","model":"test","choices":[{"index":0,"delta":{},"finishReason":"stop"}]}
+        """
+        val chunk = json.decodeFromString<ChatCompletionChunk>(chunkJson)
+
+        assertEquals("stop", chunk.choices.firstOrNull()?.finishReason)
+        assertNull(chunk.choices.firstOrNull()?.delta?.content)
+    }
 }

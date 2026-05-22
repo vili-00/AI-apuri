@@ -49,6 +49,21 @@ class OkHttpLlamaApiClient(
                 .readTimeout(120, TimeUnit.SECONDS)
                 .build()
         }
+
+        /**
+         * OkHttpClient tuned for SSE streaming endpoints.
+         *
+         * [readTimeout] is disabled (0) because LLM token generation can have long
+         * idle gaps between bytes. A [callTimeout] of 10 minutes acts as a safety net
+         * against runaway requests.
+         */
+        fun streamingOkHttpClient(): OkHttpClient {
+            return OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .callTimeout(10, TimeUnit.MINUTES)
+                .build()
+        }
     }
 
     // ==================== Health check ====================
@@ -157,8 +172,15 @@ class OkHttpLlamaApiClient(
 
         val httpReqBuilder = buildPostRequestBuilder(url, requestBody)
 
+        val streamingClient = streamingOkHttpClient()
+
         return callbackFlow {
-            val eventSourceFactory = EventSources.createFactory(httpClient)
+            val eventSourceFactory = EventSources.createFactory(streamingClient)
+
+            // Guard against double-close: once the flow is completed (via [DONE]
+            // or finish_reason), subsequent onFailure calls from connection
+            // teardown must not emit Error events or call close() again.
+            var isClosed = false
 
             val listener = object : EventSourceListener() {
 
@@ -170,6 +192,7 @@ class OkHttpLlamaApiClient(
                 ) {
                     // Skip the [DONE] sentinel
                     if (data == "[DONE]") {
+                        isClosed = true
                         trySend(ChatStreamEvent.Complete)
                         close()
                         return
@@ -177,12 +200,29 @@ class OkHttpLlamaApiClient(
 
                     try {
                         val chunk = json.decodeFromString<ChatCompletionChunk>(data)
-                        val content = chunk.choices
-                            .firstOrNull()
-                            ?.delta
-                            ?.content
+                        val firstChoice = chunk.choices.firstOrNull()
+                        val finishReason = firstChoice?.finishReason
+                        val content = firstChoice?.delta?.content
 
-                        if (!content.isNullOrBlank()) {
+                        // Check for finish_reason as an alternative completion signal.
+                        // Some servers send finish_reason:"stop" on the last chunk
+                        // before (or without) sending [DONE].
+                        if (finishReason != null) {
+                            isClosed = true
+                            // Emit the last content delta if present
+                            if (!content.isNullOrEmpty()) {
+                                trySend(ChatStreamEvent.TextDelta(content))
+                            }
+                            trySend(ChatStreamEvent.Complete)
+                            close()
+                            return
+                        }
+
+                        // Emit content deltas. Use isNullOrEmpty (NOT isNullOrBlank)
+                        // because BPE tokenizers emit spaces as leading characters.
+                        // A delta containing only " " is valid payload — trimming it
+                        // would corrupt the assembled text.
+                        if (!content.isNullOrEmpty()) {
                             trySend(ChatStreamEvent.TextDelta(content))
                         }
                     } catch (e: Exception) {
@@ -198,6 +238,10 @@ class OkHttpLlamaApiClient(
                     t: Throwable?,
                     response: okhttp3.Response?
                 ) {
+                    // If we already completed the flow (via [DONE] or finish_reason),
+                    // ignore failure callbacks from connection teardown.
+                    if (isClosed) return
+
                     val code = response?.code
                     val message = t?.message ?: response?.message ?: "Streaming failed"
 
